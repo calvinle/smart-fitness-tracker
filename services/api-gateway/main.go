@@ -10,7 +10,6 @@ import (
 	"os"
 	"time"
 
-	"cloud.google.com/go/workflows/apiv1/workflowspb"
 	"cloud.google.com/go/workflows/executions/apiv1"
 	"cloud.google.com/go/workflows/executions/apiv1/executionspb"
 	"github.com/gorilla/mux"
@@ -18,10 +17,14 @@ import (
 )
 
 var (
-	port       = getEnv("PORT", "8080")
-	projectID  = os.Getenv("GCP_PROJECT_ID")
-	location   = getEnv("GCP_REGION", "us-central1")
-	workflowID = getEnv("WORKFLOW_ID", "workout-processing-workflow")
+	port                  = getEnv("PORT", "8080")
+	projectID             = os.Getenv("GCP_PROJECT_ID")
+	location              = getEnv("GCP_REGION", "us-central1")
+	workflowID            = getEnv("WORKFLOW_ID", "workout-processing-workflow")
+	workflowMock          = getEnv("WORKFLOW_MOCK", "false") == "true"
+	validatorServiceURL   = getEnv("VALIDATOR_SERVICE_URL", "http://localhost:8080")
+	calculatorServiceURL  = getEnv("CALCULATOR_SERVICE_URL", "http://localhost:8081")
+	persistenceServiceURL = getEnv("PERSISTENCE_SERVICE_URL", "http://localhost:8082")
 )
 
 type WorkoutRequest struct {
@@ -75,7 +78,15 @@ func main() {
 
 	// Start server
 	log.Printf("API Gateway starting on port %s", port)
-	log.Printf("Project: %s, Region: %s, Workflow: %s", projectID, location, workflowID)
+	if workflowMock {
+		log.Println("⚠️  Running in MOCK MODE (no GCP required)")
+		log.Printf("  Validator URL:    %s", validatorServiceURL)
+		log.Printf("  Calculator URL:   %s", calculatorServiceURL)
+		log.Printf("  Persistence URL:  %s", persistenceServiceURL)
+	} else {
+		log.Println("Running in PRODUCTION MODE")
+		log.Printf("  Project: %s, Region: %s, Workflow: %s", projectID, location, workflowID)
+	}
 	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
 
@@ -175,6 +186,12 @@ func workoutStatusHandler(w http.ResponseWriter, r *http.Request) {
 
 // triggerWorkflow triggers the GCP Workflow for workout processing
 func triggerWorkflow(ctx context.Context, workout WorkoutRequest) (string, error) {
+	// Mock mode: simulate workflow by calling services directly
+	if workflowMock {
+		log.Println("Running in MOCK mode - simulating workflow")
+		return simulateWorkflow(ctx, workout)
+	}
+
 	client, err := executions.NewClient(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to create executions client: %w", err)
@@ -210,6 +227,17 @@ func triggerWorkflow(ctx context.Context, workout WorkoutRequest) (string, error
 
 // getWorkflowStatus gets the status of a workflow execution
 func getWorkflowStatus(ctx context.Context, executionName string) (map[string]interface{}, error) {
+	// Mock mode: return success status
+	if workflowMock {
+		return map[string]interface{}{
+			"executionId": executionName,
+			"state":       "SUCCEEDED",
+			"startTime":   time.Now().Add(-5 * time.Second).Format(time.RFC3339),
+			"endTime":     time.Now().Format(time.RFC3339),
+			"result":      "Workout processed successfully (mock mode)",
+		}, nil
+	}
+
 	client, err := executions.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create executions client: %w", err)
@@ -235,7 +263,7 @@ func getWorkflowStatus(ctx context.Context, executionName string) (map[string]in
 		status["endTime"] = execution.EndTime.AsTime().Format(time.RFC3339)
 	}
 
-	if execution.Result != nil {
+	if execution.Result != "" {
 		var result interface{}
 		if err := json.Unmarshal([]byte(execution.Result), &result); err == nil {
 			status["result"] = result
@@ -247,6 +275,93 @@ func getWorkflowStatus(ctx context.Context, executionName string) (map[string]in
 	}
 
 	return status, nil
+}
+
+// simulateWorkflow simulates the workflow by calling services directly (for local testing)
+func simulateWorkflow(ctx context.Context, workout WorkoutRequest) (string, error) {
+	executionID := fmt.Sprintf("mock-execution-%d", time.Now().Unix())
+	log.Printf("Simulating workflow with ID: %s", executionID)
+
+	// Step 1: Validate
+	validatedData, err := callValidator(workout)
+	if err != nil {
+		return "", fmt.Errorf("validation failed: %w", err)
+	}
+	log.Println("✓ Validation passed")
+
+	// Step 2: Calculate
+	calculatedData, err := callCalculator(validatedData)
+	if err != nil {
+		return "", fmt.Errorf("calculation failed: %w", err)
+	}
+	log.Println("✓ Calculation completed")
+
+	// Step 3: Persist
+	err = callPersistence(validatedData, calculatedData)
+	if err != nil {
+		return "", fmt.Errorf("persistence failed: %w", err)
+	}
+	log.Println("✓ Persistence completed")
+
+	log.Printf("Mock workflow %s completed successfully", executionID)
+	return executionID, nil
+}
+
+func callValidator(workout WorkoutRequest) (map[string]interface{}, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	payload, _ := json.Marshal(workout)
+	resp, err := client.Post(validatorServiceURL+"/validate", "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, fmt.Errorf("failed to call validator: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode validator response: %w", err)
+	}
+
+	if valid, ok := result["valid"].(bool); !ok || !valid {
+		return nil, fmt.Errorf("validation failed: %v", result["errors"])
+	}
+
+	return result["data"].(map[string]interface{}), nil
+}
+
+func callCalculator(validatedData map[string]interface{}) (map[string]interface{}, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	calcInput := map[string]interface{}{
+		"bodyweight": validatedData["bodyweight"],
+		"gender":     "male",
+		"exercises":  validatedData["exercises"],
+	}
+	payload, _ := json.Marshal(calcInput)
+	resp, err := client.Post(calculatorServiceURL+"/calculate", "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, fmt.Errorf("failed to call calculator: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode calculator response: %w", err)
+	}
+	return result, nil
+}
+
+func callPersistence(validatedData, calculatedData map[string]interface{}) error {
+	client := &http.Client{Timeout: 10 * time.Second}
+	persistInput := map[string]interface{}{
+		"validatedData":    validatedData,
+		"calculatedScores": calculatedData,
+	}
+	payload, _ := json.Marshal(persistInput)
+	resp, err := client.Post(persistenceServiceURL+"/persist", "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		return fmt.Errorf("failed to call persistence: %w", err)
+	}
+	defer resp.Body.Close()
+	return nil
 }
 
 func respondJSON(w http.ResponseWriter, statusCode int, data interface{}) {
