@@ -1,0 +1,56 @@
+# GCP Workflows Orchestrator
+
+This workflow orchestrates the sequential processing of workout submissions.
+
+## Phase A: Orchestrated Logic
+
+The workflow executes three steps in sequence:
+1. **Validator** - Validates workout data schema
+2. **Calculator** - Computes DOTS/Wilks scores
+3. **Persistence** - Saves to Firestore and triggers Pub/Sub
+
+If any step fails, the workflow stops and returns an error.
+
+## Workflow Definition
+
+See `workout-processing-workflow.yaml` for the complete workflow definition.
+
+## Deployment
+
+```bash
+# Deploy the workflow
+gcloud workflows deploy workout-processing-workflow \
+  --source=workout-processing-workflow.yaml \
+  --location=us-central1
+```
+
+## Environment Setup
+
+Before deploying, update the workflow YAML with your actual service URLs:
+- Replace `VALIDATOR_SERVICE_URL` with your deployed validator service
+- Replace `CALCULATOR_SERVICE_URL` with your deployed calculator service  
+- Replace `PERSISTENCE_SERVICE_URL` with your deployed persistence service
+
+## Testing
+
+You can trigger the workflow manually for testing:
+
+```bash
+gcloud workflows execute workout-processing-workflow \
+  --data='{"userId":"test123","date":"2026-03-23T10:30:00Z","bodyweight":80,"exercises":[{"name":"Squat","category":"squat","weight":100,"reps":5,"sets":3}]}'
+```
+
+## Monitoring
+
+View workflow executions in the GCP Console:
+```
+Cloud Console → Workflows → workout-processing-workflow → Executions
+```
+
+## Error Handling
+
+The workflow includes error handling:
+- Each step has a timeout (default: 60 seconds)
+- Failed steps return error details
+- The workflow state indicates success/failure
+- Errors are logged to Cloud Logging

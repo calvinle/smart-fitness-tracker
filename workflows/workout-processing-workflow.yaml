@@ -1,0 +1,81 @@
+# Workout Processing Workflow
+# This workflow orchestrates the sequential processing of workout submissions
+# Phase A: Orchestrated Logic (Validator → Calculator → Persistence)
+
+main:
+  params: [workoutData]
+  steps:
+    # Step 1: Validate workout data
+    - validate:
+        call: http.post
+        args:
+          url: ${VALIDATOR_SERVICE_URL}/validate
+          headers:
+            Content-Type: application/json
+          body: ${workoutData}
+          timeout: 60
+        result: validationResult
+    
+    # Check validation result
+    - checkValidation:
+        switch:
+          - condition: ${validationResult.body.valid == false}
+            return:
+              success: false
+              error: "Validation failed"
+              details: ${validationResult.body.errors}
+    
+    # Step 2: Calculate performance scores
+    - calculate:
+        call: http.post
+        args:
+          url: ${CALCULATOR_SERVICE_URL}/calculate
+          headers:
+            Content-Type: application/json
+          body:
+            bodyweight: ${validationResult.body.data.bodyweight}
+            gender: male
+            exercises: ${validationResult.body.data.exercises}
+          timeout: 60
+        result: calculationResult
+    
+    # Check calculation result
+    - checkCalculation:
+        switch:
+          - condition: ${calculationResult.code >= 400}
+            return:
+              success: false
+              error: "Calculation failed"
+              details: ${calculationResult.body}
+    
+    # Step 3: Persist data to Firestore and trigger Pub/Sub
+    - persist:
+        call: http.post
+        args:
+          url: ${PERSISTENCE_SERVICE_URL}/persist
+          headers:
+            Content-Type: application/json
+          body:
+            validatedData: ${validationResult.body.data}
+            calculatedScores: ${calculationResult.body}
+          timeout: 60
+        result: persistenceResult
+    
+    # Check persistence result
+    - checkPersistence:
+        switch:
+          - condition: ${persistenceResult.code >= 400}
+            return:
+              success: false
+              error: "Persistence failed"
+              details: ${persistenceResult.body}
+    
+    # Success - return all results
+    - returnSuccess:
+        return:
+          success: true
+          message: "Workout processed successfully"
+          workoutId: ${persistenceResult.body.workoutId}
+          validation: ${validationResult.body}
+          calculation: ${calculationResult.body}
+          persistence: ${persistenceResult.body}

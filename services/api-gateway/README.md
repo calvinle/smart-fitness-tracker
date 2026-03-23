@@ -1,0 +1,148 @@
+# API Gateway
+
+Lightweight Golang API Gateway that serves as the entry point for workout submissions.
+
+## Responsibilities
+
+- Receive workout submissions from the frontend
+- Validate basic request structure
+- Trigger GCP Workflows for orchestrated processing
+- Provide workflow execution status endpoints
+- Handle CORS for frontend integration
+
+## Why Golang?
+
+- **Performance**: Fast request handling with low memory footprint
+- **Concurrency**: Excellent for handling multiple simultaneous requests
+- **Small container size**: Minimal resource usage (stays within free tier)
+- **Type safety**: Compile-time error checking
+
+## API Endpoints
+
+### POST /api/workout
+
+Submit a new workout for processing.
+
+**Request Body:**
+```json
+{
+  "userId": "user123",
+  "date": "2026-03-23T10:30:00Z",
+  "bodyweight": 80.5,
+  "exercises": [
+    {
+      "name": "Squat",
+      "category": "squat",
+      "weight": 100,
+      "reps": 5,
+      "sets": 3,
+      "rpe": 8
+    }
+  ],
+  "duration": 60,
+  "notes": "Good session"
+}
+```
+
+**Response (202 Accepted):**
+```json
+{
+  "success": true,
+  "message": "Workout submission accepted and processing started",
+  "requestId": "projects/.../workflows/.../executions/...",
+  "data": {
+    "executionId": "...",
+    "statusUrl": "/api/workout/{executionId}/status"
+  }
+}
+```
+
+### GET /api/workout/:executionId/status
+
+Get the status of a workflow execution.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "executionId": "...",
+    "state": "SUCCEEDED",
+    "startTime": "2026-03-23T10:30:00Z",
+    "endTime": "2026-03-23T10:30:05Z",
+    "result": { ... }
+  }
+}
+```
+
+**Workflow States:**
+- `ACTIVE`: Currently processing
+- `SUCCEEDED`: Completed successfully
+- `FAILED`: Processing failed
+- `CANCELLED`: Execution was cancelled
+
+### GET /health
+
+Health check endpoint.
+
+## Environment Variables
+
+- `PORT` - Server port (default: 8080)
+- `GCP_PROJECT_ID` - GCP Project ID (required)
+- `GCP_REGION` - GCP region (default: us-central1)
+- `WORKFLOW_ID` - Workflow name (default: workout-processing-workflow)
+
+## Local Development
+
+```bash
+export GCP_PROJECT_ID=your-project-id
+export WORKFLOW_ID=workout-processing-workflow
+go run main.go
+```
+
+## Build
+
+```bash
+go build -o api-gateway
+```
+
+## Docker
+
+```bash
+docker build -t api-gateway .
+docker run -p 8080:8080 \
+  -e GCP_PROJECT_ID=your-project-id \
+  -e WORKFLOW_ID=workout-processing-workflow \
+  api-gateway
+```
+
+## Cloud Run Deployment
+
+```bash
+gcloud run deploy api-gateway \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --max-instances 10 \
+  --memory 128Mi \
+  --set-env-vars GCP_PROJECT_ID=YOUR_PROJECT_ID,WORKFLOW_ID=workout-processing-workflow
+```
+
+## CORS Configuration
+
+The gateway is configured to allow all origins by default for development. In production, update the CORS configuration in `main.go` to restrict to your frontend domain:
+
+```go
+AllowedOrigins: []string{"https://your-app.web.app"},
+```
+
+## Performance
+
+- **Memory**: ~50MB runtime
+- **Cold start**: <1 second
+- **Response time**: <100ms (excluding workflow execution)
+
+Ideal for GCP Free Tier with:
+- 2M requests/month free
+- 360K GB-seconds/month free
+- Always-free Cloud Run allowance

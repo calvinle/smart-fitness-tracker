@@ -1,0 +1,36 @@
+{
+  "name": "smart-fitness-tracker",
+  "version": "1.0.0",
+  "description": "Microservices-based fitness tracking application demonstrating GCP orchestrated and choreographed workflows",
+  "private": true,
+  "workspaces": [
+    "services/validator",
+    "services/calculator",
+    "services/persistence",
+    "services/pr-detector",
+    "services/stats-aggregator",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm install --workspaces",
+    "build:all": "npm run build --workspaces",
+    "test:all": "npm run test --workspaces --if-present",
+    "dev:validator": "npm run dev --workspace=services/validator",
+    "dev:calculator": "npm run dev --workspace=services/calculator",
+    "dev:persistence": "npm run dev --workspace=services/persistence",
+    "dev:pr-detector": "npm run dev --workspace=services/pr-detector",
+    "dev:stats-aggregator": "npm run dev --workspace=services/stats-aggregator",
+    "dev:frontend": "npm run dev --workspace=frontend"
+  },
+  "keywords": [
+    "microservices",
+    "gcp",
+    "cloud-run",
+    "workflows",
+    "pubsub",
+    "cloud-tasks",
+    "fitness"
+  ],
+  "author": "",
+  "license": "MIT"
+}
