@@ -114,56 +114,74 @@ export default function WorkoutForm({ onSubmitted }: Props) {
               </div>
 
               <div className="exercise-fields">
-                <input
-                  type="text"
-                  placeholder="Exercise name"
-                  value={exercise.name}
-                  onChange={(e) => updateExercise(index, 'name', e.target.value)}
-                  required
-                />
+                <div className="field-group">
+                  <label>Exercise Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Squat, Bench Press"
+                    value={exercise.name}
+                    onChange={(e) => updateExercise(index, 'name', e.target.value)}
+                    required
+                  />
+                </div>
 
-                <select
-                  value={exercise.category}
-                  onChange={(e) => updateExercise(index, 'category', e.target.value)}
-                >
-                  <option value="squat">Squat</option>
-                  <option value="bench">Bench Press</option>
-                  <option value="deadlift">Deadlift</option>
-                  <option value="accessory">Accessory</option>
-                </select>
+                <div className="field-group">
+                  <label>Category</label>
+                  <select
+                    value={exercise.category}
+                    onChange={(e) => updateExercise(index, 'category', e.target.value)}
+                  >
+                    <option value="squat">Squat</option>
+                    <option value="bench">Bench Press</option>
+                    <option value="deadlift">Deadlift</option>
+                    <option value="accessory">Accessory</option>
+                  </select>
+                </div>
 
-                <input
-                  type="number"
-                  placeholder="Weight (kg)"
-                  value={exercise.weight || ''}
-                  onChange={(e) => updateExercise(index, 'weight', parseFloat(e.target.value))}
-                  required
-                />
+                <div className="field-group">
+                  <label>Weight (kg)</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={exercise.weight || ''}
+                    onChange={(e) => updateExercise(index, 'weight', parseFloat(e.target.value))}
+                    required
+                  />
+                </div>
 
-                <input
-                  type="number"
-                  placeholder="Reps"
-                  value={exercise.reps || ''}
-                  onChange={(e) => updateExercise(index, 'reps', parseInt(e.target.value))}
-                  required
-                />
+                <div className="field-group">
+                  <label>Reps</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={exercise.reps || ''}
+                    onChange={(e) => updateExercise(index, 'reps', parseInt(e.target.value))}
+                    required
+                  />
+                </div>
 
-                <input
-                  type="number"
-                  placeholder="Sets"
-                  value={exercise.sets || ''}
-                  onChange={(e) => updateExercise(index, 'sets', parseInt(e.target.value))}
-                  required
-                />
+                <div className="field-group">
+                  <label>Sets</label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={exercise.sets || ''}
+                    onChange={(e) => updateExercise(index, 'sets', parseInt(e.target.value))}
+                    required
+                  />
+                </div>
 
-                <input
-                  type="number"
-                  placeholder="RPE (optional)"
-                  min="1"
-                  max="10"
-                  value={exercise.rpe || ''}
-                  onChange={(e) => updateExercise(index, 'rpe', parseFloat(e.target.value))}
-                />
+                <div className="field-group">
+                  <label>RPE (1-10)</label>
+                  <input
+                    type="number"
+                    placeholder="Optional"
+                    min="1"
+                    max="10"
+                    value={exercise.rpe || ''}
+                    onChange={(e) => updateExercise(index, 'rpe', parseFloat(e.target.value))}
+                  />
+                </div>
               </div>
             </div>
           ))}

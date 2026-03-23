@@ -50,3 +50,5 @@ coverage/
 .firebase/
 firebase-debug.log
 .firebaserc
+
+.service-pids

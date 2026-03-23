@@ -49,11 +49,20 @@
 }
 
 .App-footer {
-  background-color: #1a1a1a;
-  color: #888;
+  background-color: #e8e8e8;
+  color: #666;
   padding: 1rem;
   text-align: center;
   font-size: 0.9rem;
+  border-top: 1px solid #ddd;
+}
+
+@media (prefers-color-scheme: dark) {
+  .App-footer {
+    background-color: #1a1a1a;
+    color: #888;
+    border-top-color: #333;
+  }
 }
 
 @media (max-width: 768px) {

@@ -42,6 +42,11 @@
   margin-bottom: 1rem;
 }
 
+.section-header h3 {
+  color: #333;
+  margin: 0;
+}
+
 .add-btn {
   background-color: #667eea;
   color: white;
@@ -67,6 +72,7 @@
   align-items: center;
   margin-bottom: 1rem;
   font-weight: 500;
+  color: #333;
 }
 
 .remove-btn {
@@ -84,12 +90,30 @@
 .exercise-fields {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr;
-  gap: 0.5rem;
+  gap: 0.75rem;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.field-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
 .exercise-fields input,
 .exercise-fields select {
   width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.95rem;
 }
 
 .submit-btn {
