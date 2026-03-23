@@ -1,6 +1,17 @@
 .status-container {
   max-width: 900px;
   margin: 0 auto;
+  color: #333;
+}
+
+.status-container h2 {
+  color: #222;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.status-container p {
+  color: #555;
 }
 
 .status-card {
@@ -32,6 +43,7 @@
 .status-label {
   font-size: 1.2rem;
   font-weight: 500;
+  color: #333;
 }
 
 .status-badge {
@@ -72,6 +84,15 @@
   justify-content: space-between;
   padding: 0.5rem 0;
   border-bottom: 1px solid #e0e0e0;
+  color: #333;
+}
+
+.detail-row strong {
+  color: #333;
+}
+
+.detail-row span {
+  color: #555;
 }
 
 .detail-row:last-child {
@@ -83,11 +104,17 @@
   padding: 0.25rem 0.5rem;
   border-radius: 3px;
   font-size: 0.875rem;
+  color: #333;
 }
 
 .loading-indicator {
   text-align: center;
   padding: 2rem;
+  color: #333;
+}
+
+.loading-indicator p {
+  color: #555;
 }
 
 .spinner {
@@ -115,6 +142,7 @@
 .process-steps li {
   padding: 0.5rem 0;
   font-size: 0.95rem;
+  color: #555;
 }
 
 .result-section {
@@ -144,6 +172,7 @@
   border-radius: 3px;
   display: block;
   word-break: break-all;
+  color: #333;
 }
 
 .scores {
@@ -177,14 +206,21 @@
   padding: 1rem;
   margin-top: 1.5rem;
   border-radius: 4px;
+  color: #333;
 }
 
 .info-box p {
   margin: 0.5rem 0;
+  color: #333;
 }
 
 .info-box ul {
   margin: 0.5rem 0 0 1.5rem;
+  color: #555;
+}
+
+.info-box li {
+  color: #555;
 }
 
 .error-section {
@@ -203,4 +239,100 @@
   padding: 3rem;
   font-size: 1.2rem;
   color: #666;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .status-container {
+    color: rgba(255, 255, 255, 0.87);
+  }
+
+  .status-container h2 {
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .status-container p {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .status-label {
+    color: rgba(255, 255, 255, 0.87);
+  }
+
+  .status-card {
+    background: #1e1e1e;
+    color: rgba(255, 255, 255, 0.87);
+  }
+
+  .status-details {
+    background: #2a2a2a;
+  }
+
+  .detail-row {
+    color: rgba(255, 255, 255, 0.87);
+    border-bottom-color: #444;
+  }
+
+  .detail-row strong {
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .detail-row span {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .detail-row code {
+    background: #333;
+    color: rgba(255, 255, 255, 0.87);
+  }
+
+  .loading-indicator {
+    color: rgba(255, 255, 255, 0.87);
+  }
+
+  .loading-indicator p {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .process-steps li {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .result-card {
+    background: #2a2a2a;
+  }
+
+  .result-card h4 {
+    color: rgba(255, 255, 255, 0.87);
+  }
+
+  .result-card code {
+    background: #333;
+    color: rgba(255, 255, 255, 0.87);
+  }
+
+  .score-item {
+    background: #1e1e1e;
+  }
+
+  .score-label {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .info-box {
+    background: #1a3a52;
+    color: rgba(255, 255, 255, 0.87);
+  }
+
+  .info-box p {
+    color: rgba(255, 255, 255, 0.87);
+  }
+
+  .info-box li {
+    color: rgba(255, 255, 255, 0.75);
+  }
+
+  .loading {
+    color: rgba(255, 255, 255, 0.75);
+  }
 }
