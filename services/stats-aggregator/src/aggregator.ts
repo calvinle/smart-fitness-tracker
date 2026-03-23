@@ -1,7 +1,8 @@
-import { Firestore } from '@google-cloud/firestore';
+import { Firestore, Timestamp } from '@google-cloud/firestore';
 
 const db = new Firestore({
   projectId: process.env.GCP_PROJECT_ID,
+  databaseId: 'workouts',
 });
 
 export interface UserStats {
@@ -15,7 +16,7 @@ export interface UserStats {
   exerciseFrequency: { [exerciseName: string]: number };
   recentWorkouts: number; // Last 30 days
   consistency: number; // Workouts per week average
-  lastUpdated: FirebaseFirestore.Timestamp;
+  lastUpdated: Timestamp;
 }
 
 /**
@@ -97,7 +98,7 @@ export async function aggregateUserStats(userId: string): Promise<UserStats> {
   // Calculate consistency (workouts per week)
   let consistency = 0;
   if (earliestDate && totalWorkouts > 0) {
-    const daysSinceFirst = (Date.now() - earliestDate.getTime()) / (1000 * 60 * 60 * 24);
+    const daysSinceFirst = (Date.now() - (earliestDate as Date).getTime()) / (1000 * 60 * 60 * 24);
     const weeksSinceFirst = daysSinceFirst / 7;
     consistency = weeksSinceFirst > 0 ? totalWorkouts / weeksSinceFirst : 0;
   }
@@ -113,7 +114,7 @@ export async function aggregateUserStats(userId: string): Promise<UserStats> {
     exerciseFrequency,
     recentWorkouts,
     consistency: Math.round(consistency * 100) / 100,
-    lastUpdated: Firestore.Timestamp.now(),
+    lastUpdated: Timestamp.now(),
   };
   
   // Save aggregated stats to Firestore

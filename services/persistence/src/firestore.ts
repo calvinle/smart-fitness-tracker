@@ -1,10 +1,11 @@
-import { Firestore } from '@google-cloud/firestore';
+import { Firestore, Timestamp } from '@google-cloud/firestore';
 
 /**
  * Firestore database client
  */
 export const db = new Firestore({
   projectId: process.env.GCP_PROJECT_ID,
+  databaseId: 'workouts',
   // In production, service account credentials are automatically provided by Cloud Run
   // For local development, set GOOGLE_APPLICATION_CREDENTIALS environment variable
 });
@@ -49,8 +50,8 @@ export async function saveWorkout(
   
   const docRef = await db.collection('workouts').add({
     ...workoutDoc,
-    createdAt: Firestore.Timestamp.now(),
-    updatedAt: Firestore.Timestamp.now(),
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
   });
   
   console.log(`Workout saved with ID: ${docRef.id}`);

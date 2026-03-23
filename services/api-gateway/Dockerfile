@@ -17,13 +17,14 @@ FROM alpine:latest
 
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+# Create non-root user first
+RUN addgroup -g 1001 -S appuser && adduser -S appuser -u 1001
+
+WORKDIR /home/appuser
 
 # Copy the binary from builder
 COPY --from=builder /app/api-gateway .
 
-# Create non-root user
-RUN addgroup -g 1001 -S appuser && adduser -S appuser -u 1001
 USER appuser
 
 EXPOSE 8080

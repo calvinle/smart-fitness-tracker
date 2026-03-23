@@ -1,7 +1,8 @@
-import { Firestore } from '@google-cloud/firestore';
+import { Firestore, Timestamp } from '@google-cloud/firestore';
 
 const db = new Firestore({
   projectId: process.env.GCP_PROJECT_ID,
+  databaseId: 'workouts',
 });
 
 export interface PersonalRecord {
@@ -98,7 +99,7 @@ export async function detectPersonalRecords(
       userId,
       date: newWorkout.date,
       records: personalRecords,
-      createdAt: Firestore.Timestamp.now(),
+      createdAt: Timestamp.now(),
     });
     
     console.log(`Personal records detected:`, personalRecords);
@@ -150,6 +151,6 @@ export async function sendPRNotification(prResult: PRDetectionResult): Promise<v
     message,
     workoutId: prResult.workoutId,
     read: false,
-    createdAt: Firestore.Timestamp.now(),
+    createdAt: Timestamp.now(),
   });
 }

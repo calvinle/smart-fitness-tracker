@@ -241,6 +241,106 @@
   color: #666;
 }
 
+/* Personal Records Notification */
+.pr-notification {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+  animation: slideIn 0.5s ease-out;
+}
+
+.pr-notification h3 {
+  margin: 0 0 1rem 0;
+  color: #fff;
+  font-size: 1.5rem;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.pr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pr-item {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pr-exercise {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.pr-details {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pr-new {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.pr-separator {
+  color: #999;
+  font-size: 1.25rem;
+}
+
+.pr-old {
+  color: #666;
+  font-size: 1rem;
+  text-decoration: line-through;
+}
+
+.checking-prs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #f0f7ff;
+  border-radius: 8px;
+  margin: 1rem 0;
+  color: #1976d2;
+}
+
+.spinner-small {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #e3f2fd;
+  border-top: 3px solid #1976d2;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.pr-note {
+  margin-top: 0.5rem;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .status-container {
@@ -334,5 +434,35 @@
 
   .loading {
     color: rgba(255, 255, 255, 0.75);
+  }
+
+  .pr-notification {
+    background: linear-gradient(135deg, #5568d3 0%, #6a4c93 100%);
+  }
+
+  .pr-item {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .pr-exercise {
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .pr-new {
+    color: #a8b8ff;
+  }
+
+  .pr-old {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .checking-prs {
+    background: #1a3a52;
+    color: #64b5f6;
+  }
+
+  .spinner-small {
+    border-color: #0d2940;
+    border-top-color: #64b5f6;
   }
 }

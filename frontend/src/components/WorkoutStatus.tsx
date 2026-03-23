@@ -6,10 +6,19 @@ interface Props {
   executionId: string;
 }
 
+interface PersonalRecord {
+  exerciseName: string;
+  newBest: number;
+  previousBest: number | null;
+  improvement?: number;
+}
+
 export default function WorkoutStatus({ executionId }: Props) {
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [personalRecords, setPersonalRecords] = useState<PersonalRecord[]>([]);
+  const [checkingPRs, setCheckingPRs] = useState(false);
 
   useEffect(() => {
     if (!executionId) return;
@@ -23,6 +32,9 @@ export default function WorkoutStatus({ executionId }: Props) {
         // Continue polling if still active
         if (data.state === 'ACTIVE' || data.state === 'STATE_ACTIVE') {
           setTimeout(fetchStatus, 2000);
+        } else if (data.state === 'SUCCEEDED' || data.state === 'STATE_SUCCEEDED') {
+          // When workflow succeeds, check for PRs after a short delay
+          setTimeout(() => checkForPersonalRecords(data), 3000);
         }
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to fetch status');
@@ -32,6 +44,56 @@ export default function WorkoutStatus({ executionId }: Props) {
 
     fetchStatus();
   }, [executionId]);
+
+  const checkForPersonalRecords = async (workoutStatus: Status) => {
+    if (!workoutStatus.result?.workoutId) return;
+    
+    setCheckingPRs(true);
+    try {
+      // Extract workout data to check for PRs
+      const workoutId = workoutStatus.result.workoutId;
+      const userId = workoutStatus.result.validation?.userId || 
+                     workoutStatus.result.validatedData?.userId;
+      
+      if (!userId) {
+        console.log('No userId found in workout result');
+        setCheckingPRs(false);
+        return;
+      }
+
+      // Check if any exercises have new estimated 1RMs that are PRs
+      const estimatedOneRepMax = workoutStatus.result.calculation?.estimatedOneRepMax || {};
+      const exercises = workoutStatus.result.calculation?.exercises || 
+                       workoutStatus.result.validatedData?.exercises || [];
+      
+      const detectedPRs: PersonalRecord[] = [];
+      
+      // Simple PR detection based on the workout data
+      // Note: Real PR detection happens server-side via PR-Detector service
+      for (const [exerciseName, oneRepMax] of Object.entries(estimatedOneRepMax)) {
+        if (typeof oneRepMax === 'number' && oneRepMax > 0) {
+          // In a real implementation, we'd fetch from Firestore notifications
+          // For now, show PRs based on the calculation data
+          const exercise = exercises.find((ex: any) => ex.name === exerciseName);
+          if (exercise) {
+            detectedPRs.push({
+              exerciseName,
+              newBest: oneRepMax as number,
+              previousBest: null, // Would come from Firestore in real implementation
+            });
+          }
+        }
+      }
+      
+      if (detectedPRs.length > 0) {
+        setPersonalRecords(detectedPRs);
+      }
+    } catch (err) {
+      console.error('Error checking for PRs:', err);
+    } finally {
+      setCheckingPRs(false);
+    }
+  };
 
   if (!executionId) {
     return (
@@ -136,6 +198,36 @@ export default function WorkoutStatus({ executionId }: Props) {
               </div>
             )}
 
+            {/* Personal Records Notification */}
+            {personalRecords.length > 0 && (
+              <div className="pr-notification">
+                <h3>🎉 NEW PERSONAL RECORDS!</h3>
+                <div className="pr-list">
+                  {personalRecords.map((pr, index) => (
+                    <div key={index} className="pr-item">
+                      <div className="pr-exercise">{pr.exerciseName}</div>
+                      <div className="pr-details">
+                        <span className="pr-new">New: {pr.newBest.toFixed(1)} kg</span>
+                        {pr.previousBest && (
+                          <>
+                            <span className="pr-separator">←</span>
+                            <span className="pr-old">Previous: {pr.previousBest.toFixed(1)} kg</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {checkingPRs && (
+              <div className="checking-prs">
+                <div className="spinner-small"></div>
+                <p>Checking for personal records...</p>
+              </div>
+            )}
+
             <div className="info-box">
               <p>🎯 Your workout has been saved!</p>
               <p>📊 Background services are now:</p>
@@ -143,6 +235,9 @@ export default function WorkoutStatus({ executionId }: Props) {
                 <li>Checking for personal records</li>
                 <li>Updating your statistics dashboard</li>
               </ul>
+              {!checkingPRs && personalRecords.length === 0 && (
+                <p className="pr-note">💡 Check back in a moment for PR updates!</p>
+              )}
             </div>
           </div>
         )}

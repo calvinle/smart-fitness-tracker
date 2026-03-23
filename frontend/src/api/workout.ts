@@ -41,6 +41,24 @@ export interface WorkoutStatus {
   error?: string;
 }
 
+export interface PersonalRecord {
+  exerciseName: string;
+  previousBest: number | null;
+  newBest: number;
+  improvement?: number;
+  date: string;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  workoutId: string;
+  read: boolean;
+  createdAt: string;
+}
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -54,8 +72,10 @@ export const submitWorkout = async (workout: WorkoutSubmission): Promise<Workout
 };
 
 export const getWorkoutStatus = async (executionId: string): Promise<WorkoutStatus> => {
+  // URL encode the execution ID since it contains slashes
+  const encodedId = encodeURIComponent(executionId);
   const response = await api.get<{ success: boolean; data: WorkoutStatus }>(
-    `/api/workout/${executionId}/status`
+    `/api/workout/${encodedId}/status`
   );
   return response.data.data;
 };

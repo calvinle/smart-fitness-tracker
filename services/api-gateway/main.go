@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -63,8 +64,8 @@ func main() {
 	// Main workout submission endpoint
 	router.HandleFunc("/api/workout", submitWorkoutHandler).Methods("POST")
 
-	// Get workout status
-	router.HandleFunc("/api/workout/{executionId}/status", workoutStatusHandler).Methods("GET")
+	// Get workout status (using path to allow slashes in execution ID)
+	router.HandleFunc("/api/workout/{executionId:.*}/status", workoutStatusHandler).Methods("GET")
 
 	// CORS configuration
 	c := cors.New(cors.Options{
@@ -164,10 +165,17 @@ func workoutStatusHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	executionID := vars["executionId"]
 
-	log.Printf("Checking status for execution: %s", executionID)
+	// URL decode the execution ID (it may contain slashes)
+	decodedID, err := url.QueryUnescape(executionID)
+	if err != nil {
+		log.Printf("Error decoding execution ID: %v", err)
+		decodedID = executionID
+	}
+
+	log.Printf("Checking status for execution: %s", decodedID)
 
 	// Get workflow execution status
-	status, err := getWorkflowStatus(r.Context(), executionID)
+	status, err := getWorkflowStatus(r.Context(), decodedID)
 	if err != nil {
 		log.Printf("Error getting workflow status: %v", err)
 		respondJSON(w, http.StatusInternalServerError, APIResponse{

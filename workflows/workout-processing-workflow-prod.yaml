@@ -1,0 +1,42 @@
+main:
+  params: [workout]
+  steps:
+    - validate:
+        call: http.post
+        args:
+          url: https://validator-379577079645.us-central1.run.app/validate
+          body: ${workout}
+          auth:
+            type: OIDC
+        result: validationResult
+    
+    - checkValidation:
+        switch:
+          - condition: ${validationResult.body.valid == false}
+            return: ${validationResult.body}
+    
+    - calculate:
+        call: http.post
+        args:
+          url: https://calculator-379577079645.us-central1.run.app/calculate
+          body:
+            bodyweight: ${validationResult.body.data.bodyweight}
+            gender: "male"
+            exercises: ${validationResult.body.data.exercises}
+          auth:
+            type: OIDC
+        result: calculationResult
+    
+    - persist:
+        call: http.post
+        args:
+          url: https://persistence-379577079645.us-central1.run.app/persist
+          body:
+            validatedData: ${validationResult.body.data}
+            calculatedScores: ${calculationResult.body}
+          auth:
+            type: OIDC
+        result: persistenceResult
+    
+    -  returnSuccess:
+        return: ${persistenceResult.body}
