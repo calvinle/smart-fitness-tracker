@@ -1,16 +1,32 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { createAggregationTask } from './tasks';
 import { aggregateUserStats, getCachedUserStats } from './aggregator';
 
 const app = express();
 const PORT = process.env.PORT || 8084;
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : [];
+
 // Middleware
 app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(cors({
+  origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+  methods: ['GET', 'POST'],
+}));
+app.use(express.json({ limit: '100kb' }));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -22,7 +38,7 @@ app.get('/health', (req: Request, res: Response) => {
  * Pub/Sub push endpoint
  * Receives WORKOUT_PROCESSED events and creates Cloud Tasks
  */
-app.post('/pubsub', async (req: Request, res: Response) => {
+app.post('/pubsub', limiter, async (req: Request, res: Response) => {
   try {
     console.log('Received Pub/Sub message for stats aggregation');
     
@@ -75,7 +91,7 @@ app.post('/pubsub', async (req: Request, res: Response) => {
  * Cloud Tasks target endpoint
  * Performs the actual stats aggregation
  */
-app.post('/aggregate', async (req: Request, res: Response) => {
+app.post('/aggregate', limiter, async (req: Request, res: Response) => {
   try {
     console.log('Received aggregation task');
     
@@ -103,7 +119,7 @@ app.post('/aggregate', async (req: Request, res: Response) => {
     console.error('Aggregation error:', error);
     res.status(500).json({
       error: 'Aggregation failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'An internal error occurred',
     });
   }
 });
@@ -112,7 +128,7 @@ app.post('/aggregate', async (req: Request, res: Response) => {
  * GET /stats/:userId
  * Get cached user stats
  */
-app.get('/stats/:userId', async (req: Request, res: Response) => {
+app.get('/stats/:userId', limiter, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     
@@ -130,7 +146,7 @@ app.get('/stats/:userId', async (req: Request, res: Response) => {
     console.error('Error fetching stats:', error);
     res.status(500).json({
       error: 'Failed to fetch stats',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'An internal error occurred',
     });
   }
 });
@@ -139,7 +155,7 @@ app.get('/stats/:userId', async (req: Request, res: Response) => {
  * POST /trigger
  * Manual trigger for stats aggregation (for testing)
  */
-app.post('/trigger', async (req: Request, res: Response) => {
+app.post('/trigger', limiter, async (req: Request, res: Response) => {
   try {
     const { userId } = req.body;
     
@@ -157,7 +173,7 @@ app.post('/trigger', async (req: Request, res: Response) => {
     console.error('Error triggering aggregation:', error);
     res.status(500).json({
       error: 'Failed to trigger aggregation',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'An internal error occurred',
     });
   }
 });

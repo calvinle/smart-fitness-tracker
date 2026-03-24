@@ -5,15 +5,15 @@ import { z } from 'zod';
  * Ensures exercises have required fields and valid data types
  */
 export const ExerciseSchema = z.object({
-  name: z.string().min(1, 'Exercise name is required'),
+  name: z.string().min(1, 'Exercise name is required').max(100, 'Exercise name must be 100 characters or fewer'),
   category: z.enum(['squat', 'bench', 'deadlift', 'accessory'], {
     errorMap: () => ({ message: 'Invalid exercise category' }),
   }),
-  weight: z.number().positive('Weight must be greater than 0'),
-  reps: z.number().int().positive('Reps must be a positive integer'),
-  sets: z.number().int().positive('Sets must be a positive integer'),
+  weight: z.number().positive('Weight must be greater than 0').max(2000, 'Weight exceeds maximum allowed value'),
+  reps: z.number().int().positive('Reps must be a positive integer').max(10000, 'Reps exceeds maximum allowed value'),
+  sets: z.number().int().positive('Sets must be a positive integer').max(1000, 'Sets exceeds maximum allowed value'),
   rpe: z.number().min(1).max(10).optional(), // Rate of Perceived Exertion
-  notes: z.string().optional(),
+  notes: z.string().max(500, 'Exercise notes must be 500 characters or fewer').optional(),
 });
 
 /**
@@ -21,12 +21,12 @@ export const ExerciseSchema = z.object({
  * Validates the complete workout submission
  */
 export const WorkoutSchema = z.object({
-  userId: z.string().min(1, 'User ID is required'),
+  userId: z.string().min(1, 'User ID is required').max(128, 'User ID must be 128 characters or fewer').regex(/^[a-zA-Z0-9_\-@.]+$/, 'User ID contains invalid characters'),
   date: z.string().datetime('Invalid date format, use ISO 8601'),
-  bodyweight: z.number().positive('Bodyweight must be greater than 0'),
-  exercises: z.array(ExerciseSchema).min(1, 'At least one exercise is required'),
-  duration: z.number().int().positive('Duration must be a positive integer').optional(), // in minutes
-  notes: z.string().optional(),
+  bodyweight: z.number().positive('Bodyweight must be greater than 0').max(500, 'Bodyweight exceeds maximum allowed value'),
+  exercises: z.array(ExerciseSchema).min(1, 'At least one exercise is required').max(50, 'Too many exercises in a single workout'),
+  duration: z.number().int().positive('Duration must be a positive integer').max(1440, 'Duration exceeds maximum allowed value (1440 minutes)').optional(), // in minutes
+  notes: z.string().max(1000, 'Workout notes must be 1000 characters or fewer').optional(),
 });
 
 export type Exercise = z.infer<typeof ExerciseSchema>;

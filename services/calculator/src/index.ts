@@ -1,15 +1,31 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { calculateScores, CalculationInput } from './calculator';
 
 const app = express();
 const PORT = process.env.PORT || 8081;
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : [];
+
 // Middleware
 app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(cors({
+  origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+  methods: ['GET', 'POST'],
+}));
+app.use(express.json({ limit: '100kb' }));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -23,7 +39,7 @@ app.get('/health', (req: Request, res: Response) => {
  * Request body: CalculationInput
  * Response: CalculationResult
  */
-app.post('/calculate', (req: Request, res: Response) => {
+app.post('/calculate', limiter, (req: Request, res: Response) => {
   try {
     console.log('Received calculation request:', JSON.stringify(req.body, null, 2));
     
@@ -53,7 +69,7 @@ app.post('/calculate', (req: Request, res: Response) => {
     console.error('Calculation error:', error);
     res.status(500).json({
       error: 'Calculation failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'An internal error occurred',
     });
   }
 });

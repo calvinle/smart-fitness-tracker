@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/workflows/executions/apiv1"
@@ -66,12 +67,20 @@ func main() {
 	// Get workout status
 	router.HandleFunc("/api/workout/{executionId}/status", workoutStatusHandler).Methods("GET")
 
-	// CORS configuration
+	// CORS configuration - restrict to configured allowed origins
+	allowedOriginsEnv := getEnv("ALLOWED_ORIGINS", "")
+	var allowedOrigins []string
+	if allowedOriginsEnv != "" {
+		for _, o := range strings.Split(allowedOriginsEnv, ",") {
+			if trimmed := strings.TrimSpace(o); trimmed != "" {
+				allowedOrigins = append(allowedOrigins, trimmed)
+			}
+		}
+	}
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"}, // In production, restrict to your frontend domain
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
+		AllowedOrigins: allowedOrigins,
+		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization"},
 	})
 
 	handler := c.Handler(router)
@@ -105,14 +114,24 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 func submitWorkoutHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Received workout submission request")
 
+	// Enforce request body size limit (100 KB)
+	r.Body = http.MaxBytesReader(w, r.Body, 100*1024)
+
 	// Parse request body
 	var workout WorkoutRequest
 	if err := json.NewDecoder(r.Body).Decode(&workout); err != nil {
 		log.Printf("Error parsing request: %v", err)
+		// Detect whether the body exceeded the size limit
+		if err.Error() == "http: request body too large" {
+			respondJSON(w, http.StatusRequestEntityTooLarge, APIResponse{
+				Success: false,
+				Error:   "Request body too large",
+			})
+			return
+		}
 		respondJSON(w, http.StatusBadRequest, APIResponse{
 			Success: false,
 			Error:   "Invalid request body",
-			Message: err.Error(),
 		})
 		return
 	}
@@ -141,7 +160,6 @@ func submitWorkoutHandler(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusInternalServerError, APIResponse{
 			Success: false,
 			Error:   "Failed to process workout",
-			Message: err.Error(),
 		})
 		return
 	}
@@ -173,7 +191,6 @@ func workoutStatusHandler(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusInternalServerError, APIResponse{
 			Success: false,
 			Error:   "Failed to get workflow status",
-			Message: err.Error(),
 		})
 		return
 	}
