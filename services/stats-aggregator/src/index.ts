@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { createAggregationTask } from './tasks';
@@ -174,7 +174,10 @@ app.post('/trigger', async (req: Request, res: Response) => {
     });
   }
 });
-logger.error('Error occurred', { error: err.message, stack: err.stack, path: req.path });
+
+// Global error handler
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  logger.error('Error occurred', { error: err.message, stack: err.stack, path: req.path });
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined,
