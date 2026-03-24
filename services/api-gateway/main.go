@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,6 +15,8 @@ import (
 	"cloud.google.com/go/workflows/executions/apiv1/executionspb"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/api/iterator"
 )
 
@@ -58,7 +59,25 @@ type APIResponse struct {
 }
 
 func main() {
+	// Configure zerolog
+	// In production (Cloud Run), output JSON. In development, use pretty console output
+	isProduction := os.Getenv("K_SERVICE") != "" || os.Getenv("NODE_ENV") == "production"
+	if isProduction {
+		zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	} else {
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
+	}
+	
+	// Set global log level
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	if os.Getenv("LOG_LEVEL") == "debug" {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
+
 	router := mux.NewRouter()
+	
+	// Add request logging middleware
+	router.Use(loggingMiddleware)
 
 	// Health check
 	router.HandleFunc("/health", healthCheckHandler).Methods("GET")
@@ -86,17 +105,61 @@ func main() {
 	handler := c.Handler(router)
 
 	// Start server
-	log.Printf("API Gateway starting on port %s", port)
+	log.Info().
+		Str("port", port).
+		Str("service", "api-gateway").
+		Msg("API Gateway starting")
+		
 	if workflowMock {
-		log.Println("⚠️  Running in MOCK MODE (no GCP required)")
-		log.Printf("  Validator URL:    %s", validatorServiceURL)
-		log.Printf("  Calculator URL:   %s", calculatorServiceURL)
-		log.Printf("  Persistence URL:  %s", persistenceServiceURL)
+		log.Warn().Msg("Running in MOCK MODE (no GCP required)")
+		log.Info().
+			Str("validatorURL", validatorServiceURL).
+			Str("calculatorURL", calculatorServiceURL).
+			Str("persistenceURL", persistenceServiceURL).
+			Msg("Mock service URLs")
 	} else {
-		log.Println("Running in PRODUCTION MODE")
-		log.Printf("  Project: %s, Region: %s, Workflow: %s", projectID, location, workflowID)
+		log.Info().Msg("Running in PRODUCTION MODE")
+		log.Info().
+			Str("project", projectID).
+			Str("region", location).
+			Str("workflow", workflowID).
+			Msg("GCP configuration")
 	}
-	log.Fatal(http.ListenAndServe(":"+port, handler))
+	
+	log.Fatal().Err(http.ListenAndServe(":"+port, handler)).Msg("Server stopped")
+}
+
+// loggingMiddleware logs HTTP requests
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		
+		// Create a response writer wrapper to capture status code
+		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		
+		next.ServeHTTP(wrapped, r)
+		
+		duration := time.Since(start)
+		
+		log.Info().
+			Str("method", r.Method).
+			Str("path", r.URL.Path).
+			Str("remote_addr", r.RemoteAddr).
+			Int("status", wrapped.statusCode).
+			Dur("duration_ms", duration).
+			Msg("HTTP request")
+	})
+}
+
+// responseWriter wrapper to capture status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }
 
 func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
@@ -112,12 +175,12 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func submitWorkoutHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Received workout submission request")
+	log.Info().Msg("Received workout submission request")
 
 	// Parse request body
 	var workout WorkoutRequest
 	if err := json.NewDecoder(r.Body).Decode(&workout); err != nil {
-		log.Printf("Error parsing request: %v", err)
+		log.Error().Err(err).Msg("Error parsing workout request")
 		respondJSON(w, http.StatusBadRequest, APIResponse{
 			Success: false,
 			Error:   "Invalid request body",
@@ -146,7 +209,7 @@ func submitWorkoutHandler(w http.ResponseWriter, r *http.Request) {
 	// Trigger GCP Workflow
 	executionID, err := triggerWorkflow(r.Context(), workout)
 	if err != nil {
-		log.Printf("Error triggering workflow: %v", err)
+		log.Error().Err(err).Str("userId", workout.UserID).Msg("Error triggering workflow")
 		respondJSON(w, http.StatusInternalServerError, APIResponse{
 			Success: false,
 			Error:   "Failed to process workout",
@@ -155,7 +218,7 @@ func submitWorkoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Workflow triggered successfully: %s", executionID)
+	log.Info().Str("executionId", executionID).Str("userId", workout.UserID).Msg("Workflow triggered successfully")
 
 	// Return success response
 	respondJSON(w, http.StatusAccepted, APIResponse{
@@ -176,16 +239,16 @@ func workoutStatusHandler(w http.ResponseWriter, r *http.Request) {
 	// URL decode the execution ID (it may contain slashes)
 	decodedID, err := url.QueryUnescape(executionID)
 	if err != nil {
-		log.Printf("Error decoding execution ID: %v", err)
+		log.Warn().Err(err).Str("executionId", executionID).Msg("Error decoding execution ID")
 		decodedID = executionID
 	}
 
-	log.Printf("Checking status for execution: %s", decodedID)
+	log.Debug().Str("executionId", decodedID).Msg("Checking workflow status")
 
 	// Get workflow execution status
 	status, err := getWorkflowStatus(r.Context(), decodedID)
 	if err != nil {
-		log.Printf("Error getting workflow status: %v", err)
+		log.Error().Err(err).Str("executionId", decodedID).Msg("Error getting workflow status")
 		respondJSON(w, http.StatusInternalServerError, APIResponse{
 			Success: false,
 			Error:   "Failed to get workflow status",
@@ -204,12 +267,12 @@ func getWorkoutNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	workoutID := vars["workoutId"]
 
-	log.Printf("Fetching PR notifications for workout: %s", workoutID)
+	log.Debug().Str("workoutId", workoutID).Msg("Fetching PR notifications")
 
 	// Get PR notifications from Firestore
 	notifications, err := getWorkoutNotifications(r.Context(), workoutID)
 	if err != nil {
-		log.Printf("Error getting notifications: %v", err)
+		log.Error().Err(err).Str("workoutId", workoutID).Msg("Error getting notifications")
 		respondJSON(w, http.StatusInternalServerError, APIResponse{
 			Success: false,
 			Error:   "Failed to get notifications",
@@ -229,12 +292,12 @@ func getUserPersonalRecordsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["userId"]
 
-	log.Printf("Fetching personal records for user: %s", userID)
+	log.Debug().Str("userId", userID).Msg("Fetching personal records")
 
 	// Get personal records from Firestore
 	records, err := getUserPersonalRecords(r.Context(), userID)
 	if err != nil {
-		log.Printf("Error getting personal records: %v", err)
+		log.Error().Err(err).Str("userId", userID).Msg("Error getting personal records")
 		respondJSON(w, http.StatusInternalServerError, APIResponse{
 			Success: false,
 			Error:   "Failed to get personal records",

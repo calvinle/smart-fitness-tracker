@@ -1,4 +1,5 @@
 import { CloudTasksClient } from '@google-cloud/tasks';
+import logger from './logger';
 
 const client = new CloudTasksClient();
 
@@ -43,10 +44,13 @@ export async function createAggregationTask(payload: TaskPayload): Promise<strin
   
   try {
     const [response] = await client.createTask({ parent, task });
-    console.log(`Created Cloud Task: ${response.name}`);
+    logger.info('Created Cloud Task', { taskName: response.name, userId: payload.userId });
     return response.name!;
   } catch (error) {
-    console.error('Error creating Cloud Task:', error);
+    logger.error('Error creating Cloud Task', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      userId: payload.userId
+    });
     throw error;
   }
 }

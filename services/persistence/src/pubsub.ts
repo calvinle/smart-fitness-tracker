@@ -1,4 +1,5 @@
 import { PubSub } from '@google-cloud/pubsub';
+import logger from './logger';
 
 const pubsub = new PubSub({
   projectId: process.env.GCP_PROJECT_ID,
@@ -25,10 +26,18 @@ export async function publishWorkoutProcessed(workoutId: string, userId: string)
       json: message,
     });
     
-    console.log(`Published WORKOUT_PROCESSED event with message ID: ${messageId}`);
-    console.log('Message payload:', message);
+    logger.info('Published WORKOUT_PROCESSED event', { 
+      messageId, 
+      workoutId, 
+      userId,
+      topic: TOPIC_NAME
+    });
   } catch (error) {
-    console.error('Error publishing to Pub/Sub:', error);
+    logger.error('Error publishing to Pub/Sub', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      workoutId,
+      userId
+    });
     // Don't throw - we don't want to fail the main workflow if pub/sub fails
     // The choreographed services are non-critical side effects
   }

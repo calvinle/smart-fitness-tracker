@@ -1,4 +1,5 @@
 import { Firestore, Timestamp } from '@google-cloud/firestore';
+import logger from './logger';
 
 const db = new Firestore({
   projectId: process.env.GCP_PROJECT_ID,
@@ -24,7 +25,7 @@ export interface UserStats {
  * This is computationally expensive and runs asynchronously via Cloud Tasks
  */
 export async function aggregateUserStats(userId: string): Promise<UserStats> {
-  console.log(`Aggregating stats for user: ${userId}`);
+  logger.info('Starting stats aggregation', { userId });
   
   const startTime = Date.now();
   
@@ -36,7 +37,7 @@ export async function aggregateUserStats(userId: string): Promise<UserStats> {
     .limit(1000)
     .get();
   
-  console.log(`Found ${workouts.size} workouts for user ${userId}`);
+  logger.debug('Retrieved workouts for aggregation', { userId, workoutCount: workouts.size });
   
   // Initialize aggregators
   let totalVolume = 0;
@@ -121,7 +122,12 @@ export async function aggregateUserStats(userId: string): Promise<UserStats> {
   await db.collection('user-stats').doc(userId).set(stats);
   
   const duration = Date.now() - startTime;
-  console.log(`Stats aggregation completed for user ${userId} in ${duration}ms`);
+  logger.info('Stats aggregation completed', { 
+    userId, 
+    duration: `${duration}ms`,
+    totalWorkouts: stats.totalWorkouts,
+    totalVolume: stats.totalVolume
+  });
   
   return stats;
 }

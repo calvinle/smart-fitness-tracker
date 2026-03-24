@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { PubSub, Message } from '@google-cloud/pubsub';
 import { detectPersonalRecords, sendPRNotification } from './detector';
+import logger from './logger';
 
 const app = express();
 const PORT = process.env.PORT || 8083;
@@ -40,7 +41,10 @@ app.post('/detect', async (req: Request, res: Response) => {
     
     res.status(200).json(result);
   } catch (error) {
-    console.error('PR detection error:', error);
+    logger.error('PR detection error', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     res.status(500).json({
       error: 'PR detection failed',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -55,13 +59,13 @@ app.post('/detect', async (req: Request, res: Response) => {
  */
 app.post('/pubsub', async (req: Request, res: Response) => {
   try {
-    console.log('Received Pub/Sub message');
+    logger.info('Received Pub/Sub message for PR detection');
     
     // Decode the Pub/Sub message
     const message = req.body.message;
     
     if (!message || !message.data) {
-      console.log('Invalid Pub/Sub message format');
+      logger.warn('Invalid Pub/Sub message format');
       return res.status(400).json({ error: 'Invalid message format' });
     }
     
@@ -70,17 +74,17 @@ app.post('/pubsub', async (req: Request, res: Response) => {
       Buffer.from(message.data, 'base64').toString()
     );
     
-    console.log('Decoded message:', messageData);
+    logger.debug('Decoded Pub/Sub message', { eventType: messageData.eventType, workoutId: messageData.workoutId });
     
     const { workoutId, userId, eventType } = messageData;
     
     if (eventType !== 'WORKOUT_PROCESSED') {
-      console.log(`Ignoring event type: ${eventType}`);
+      logger.debug('Ignoring non-WORKOUT_PROCESSED event', { eventType });
       return res.status(200).send('OK');
     }
     
     if (!workoutId || !userId) {
-      console.log('Missing workoutId or userId in message');
+      logger.warn('Missing required fields in Pub/Sub message', { workoutId, userId });
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
@@ -91,13 +95,16 @@ app.post('/pubsub', async (req: Request, res: Response) => {
     if (result.hasPersonalRecords) {
       await sendPRNotification(result);
     } else {
-      console.log('No personal records detected');
+      logger.debug('No personal records detected', { workoutId, userId });
     }
     
     // Acknowledge the message
     res.status(200).send('OK');
   } catch (error) {
-    console.error('Error processing Pub/Sub message:', error);
+    logger.error('Error processing Pub/Sub message', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     // Return 200 to acknowledge message even on error (prevent infinite retries)
     // In production, might want to send to dead letter queue instead
     res.status(200).send('ERROR');
@@ -106,7 +113,7 @@ app.post('/pubsub', async (req: Request, res: Response) => {
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: express.NextFunction) => {
-  console.error('Error:', err);
+  logger.error('Error occurred', { error: err.message, stack: err.stack, path: req.path });
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined,
@@ -119,9 +126,11 @@ app.use((req: Request, res: Response) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`PR-Detector service listening on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Waiting for WORKOUT_PROCESSED events...`);
+  logger.info('PR-Detector service started', { 
+    port: PORT, 
+    environment: process.env.NODE_ENV || 'development'
+  });
+  logger.info('Waiting for WORKOUT_PROCESSED events...');
 });
 
 export default app;

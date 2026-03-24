@@ -91,9 +91,49 @@ Health check endpoint.
 - `GCP_PROJECT_ID` - GCP Project ID (required)
 - `GCP_REGION` - GCP region (default: us-central1)
 - `WORKFLOW_ID` - Workflow name (default: workout-processing-workflow)
+- `LOG_LEVEL` - Set to "debug" for verbose logging (default: info)
+
+## Logging
+
+The API Gateway uses **zerolog** for structured logging, which integrates seamlessly with GCP Cloud Logging.
+
+**Features:**
+- **JSON output in production** (Cloud Run) for GCP Cloud Logging
+- **Pretty console output in development** for easy debugging
+- **Structured logs** with contextual metadata (userId, executionId, etc.)
+- **Request logging middleware** that logs all HTTP requests with duration and status
+
+**Log Levels:**
+- `Info` - General operational events
+- `Debug` - Detailed debugging information (set `LOG_LEVEL=debug`)
+- `Warn` - Warning conditions
+- `Error` - Error events that might still allow the app to continue
+- `Fatal` - Severe errors that cause the application to abort
+
+**Example log output (development):**
+```
+2026-03-24T10:30:45Z INF API Gateway starting port=8085 service=api-gateway
+2026-03-24T10:30:50Z INF HTTP request method=POST path=/api/workout remote_addr=127.0.0.1:54321 status=202 duration_ms=153
+2026-03-24T10:30:50Z INF Workflow triggered successfully executionId=mock-execution-1711276250 userId=user-123
+```
+
+**Example log output (production JSON):**
+```json
+{"level":"info","time":1711276245,"message":"API Gateway starting","port":"8085","service":"api-gateway"}
+{"level":"info","time":1711276250,"message":"HTTP request","method":"POST","path":"/api/workout","remote_addr":"10.0.1.5:54321","status":202,"duration_ms":153}
+{"level":"info","time":1711276250,"message":"Workflow triggered successfully","executionId":"projects/.../executions/abc123","userId":"user-123"}
+```
 
 ## Local Development
 
+**Install dependencies:**
+```bash
+go mod download
+# or
+go mod tidy
+```
+
+**Run the service:**
 ```bash
 export GCP_PROJECT_ID=your-project-id
 export WORKFLOW_ID=workout-processing-workflow

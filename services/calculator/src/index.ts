@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { calculateScores, CalculationInput } from './calculator';
+import logger from './logger';
 
 const app = express();
 const PORT = process.env.PORT || 8081;
@@ -25,7 +26,11 @@ app.get('/health', (req: Request, res: Response) => {
  */
 app.post('/calculate', (req: Request, res: Response) => {
   try {
-    console.log('Received calculation request:', JSON.stringify(req.body, null, 2));
+    logger.info('Received calculation request', { 
+      userId: req.body.userId, 
+      bodyweight: req.body.bodyweight,
+      exerciseCount: req.body.exercises?.length 
+    });
     
     const input: CalculationInput = req.body;
     
@@ -46,11 +51,19 @@ app.post('/calculate', (req: Request, res: Response) => {
     
     const result = calculateScores(input);
     
-    console.log('Calculation successful:', result);
+    logger.info('Calculation successful', { 
+      userId: req.body.userId,
+      dotsScore: result.dotsScore,
+      wilksScore: result.wilksScore,
+      totalLifted: result.totalLifted
+    });
     
     res.status(200).json(result);
   } catch (error) {
-    console.error('Calculation error:', error);
+    logger.error('Calculation error', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     res.status(500).json({
       error: 'Calculation failed',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -60,7 +73,7 @@ app.post('/calculate', (req: Request, res: Response) => {
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: express.NextFunction) => {
-  console.error('Error:', err);
+  logger.error('Error occurred', { error: err.message, stack: err.stack, path: req.path });
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined,
@@ -73,8 +86,10 @@ app.use((req: Request, res: Response) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Calculator service listening on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info('Calculator service started', { 
+    port: PORT, 
+    environment: process.env.NODE_ENV || 'development' 
+  });
 });
 
 export default app;

@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { saveWorkout, getUserWorkouts, getWorkout, getPersonalRecords } from './firestore';
 import { publishWorkoutProcessed } from './pubsub';
+import logger from './logger';
 
 const app = express();
 const PORT = process.env.PORT || 8082;
@@ -26,7 +27,7 @@ app.get('/health', (req: Request, res: Response) => {
  */
 app.post('/persist', async (req: Request, res: Response) => {
   try {
-    console.log('Received persistence request');
+    logger.info('Received persistence request', { userId: req.body.validatedData?.userId });
     
     const { validatedData, calculatedScores } = req.body;
     
@@ -40,7 +41,7 @@ app.post('/persist', async (req: Request, res: Response) => {
     // Save to Firestore
     const { id, workout } = await saveWorkout(validatedData, calculatedScores);
     
-    console.log(`Workout persisted with ID: ${id}`);
+    logger.info('Workout persisted successfully', { workoutId: id, userId: validatedData.userId });
     
     // Publish event to Pub/Sub to trigger choreographed services
     await publishWorkoutProcessed(id, validatedData.userId);
@@ -51,7 +52,10 @@ app.post('/persist', async (req: Request, res: Response) => {
       workout,
     });
   } catch (error) {
-    console.error('Persistence error:', error);
+    logger.error('Persistence error', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     res.status(500).json({
       error: 'Failed to persist workout',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -76,7 +80,10 @@ app.get('/workouts/:userId', async (req: Request, res: Response) => {
       workouts,
     });
   } catch (error) {
-    console.error('Error fetching workouts:', error);
+    logger.error('Error fetching workouts', { 
+      userId: req.params.userId,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
     res.status(500).json({
       error: 'Failed to fetch workouts',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -100,7 +107,10 @@ app.get('/workout/:workoutId', async (req: Request, res: Response) => {
     
     res.status(200).json(workout);
   } catch (error) {
-    console.error('Error fetching workout:', error);
+    logger.error('Error fetching workout', { 
+      workoutId: req.params.workoutId,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
     res.status(500).json({
       error: 'Failed to fetch workout',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -123,7 +133,10 @@ app.get('/records/:userId', async (req: Request, res: Response) => {
       personalRecords: records,
     });
   } catch (error) {
-    console.error('Error fetching personal records:', error);
+    logger.error('Error fetching personal records', { 
+      userId: req.params.userId,
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
     res.status(500).json({
       error: 'Failed to fetch personal records',
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -133,7 +146,7 @@ app.get('/records/:userId', async (req: Request, res: Response) => {
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: express.NextFunction) => {
-  console.error('Error:', err);
+  logger.error('Error occurred', { error: err.message, stack: err.stack, path: req.path });
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined,
@@ -146,9 +159,11 @@ app.use((req: Request, res: Response) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Persistence service listening on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`GCP Project: ${process.env.GCP_PROJECT_ID || 'not set'}`);
+  logger.info('Persistence service started', { 
+    port: PORT, 
+    environment: process.env.NODE_ENV || 'development',
+    gcpProject: process.env.GCP_PROJECT_ID || 'not set'
+  });
 });
 
 export default app;

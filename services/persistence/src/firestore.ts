@@ -1,4 +1,5 @@
 import { Firestore, Timestamp } from '@google-cloud/firestore';
+import logger from './logger';
 
 /**
  * Firestore database client
@@ -54,7 +55,7 @@ export async function saveWorkout(
     updatedAt: Timestamp.now(),
   });
   
-  console.log(`Workout saved with ID: ${docRef.id}`);
+  logger.info('Workout saved to Firestore', { workoutId: docRef.id, userId: validatedData.userId });
   
   const savedDoc = await docRef.get();
   return {

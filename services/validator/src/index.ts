@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { validateWorkout } from './validation';
+import logger from './logger';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -24,18 +25,18 @@ app.get('/health', (req: Request, res: Response) => {
  * Response: { valid: boolean, errors?: string[], data?: Workout }
  */
 app.post('/validate', (req: Request, res: Response) => {
-  console.log('Received validation request:', JSON.stringify(req.body, null, 2));
+  logger.info('Received validation request', { userId: req.body.userId, exerciseCount: req.body.exercises?.length });
   
   const result = validateWorkout(req.body);
   
   if (result.valid) {
-    console.log('Validation successful');
+    logger.info('Validation successful', { userId: req.body.userId });
     res.status(200).json({
       valid: true,
       data: result.data,
     });
   } else {
-    console.log('Validation failed:', result.errors);
+    logger.warn('Validation failed', { userId: req.body.userId, errors: result.errors });
     res.status(400).json({
       valid: false,
       errors: result.errors,
@@ -45,7 +46,7 @@ app.post('/validate', (req: Request, res: Response) => {
 
 // Error handling middleware
 app.use((err: Error, req: Request, res: Response, next: express.NextFunction) => {
-  console.error('Error:', err);
+  logger.error('Error occurred', { error: err.message, stack: err.stack, path: req.path });
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined,
@@ -58,8 +59,10 @@ app.use((req: Request, res: Response) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Validator service listening on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`Validator service started`, { 
+    port: PORT, 
+    environment: process.env.NODE_ENV || 'development' 
+  });
 });
 
 export default app;

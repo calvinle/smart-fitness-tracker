@@ -1,4 +1,5 @@
 import { Firestore, Timestamp } from '@google-cloud/firestore';
+import logger from './logger';
 
 const db = new Firestore({
   projectId: process.env.GCP_PROJECT_ID,
@@ -29,7 +30,7 @@ export async function detectPersonalRecords(
   workoutId: string,
   userId: string
 ): Promise<PRDetectionResult> {
-  console.log(`Detecting PRs for workout ${workoutId}, user ${userId}`);
+  logger.info('Detecting personal records', { workoutId, userId });
   
   // Get the new workout
   const workoutDoc = await db.collection('workouts').doc(workoutId).get();
@@ -102,7 +103,12 @@ export async function detectPersonalRecords(
       createdAt: Timestamp.now(),
     });
     
-    console.log(`Personal records detected:`, personalRecords);
+    logger.info('Personal records detected', { 
+      workoutId, 
+      userId,
+      recordCount: personalRecords.length,
+      records: personalRecords.map(pr => ({ exercise: pr.exerciseName, newBest: pr.newBest }))
+    });
   }
   
   return {
@@ -137,11 +143,16 @@ export async function sendPRNotification(prResult: PRDetectionResult): Promise<v
     })
     .join('\n');
   
-  console.log('\n🏆 PERSONAL RECORD DETECTED! 🏆');
-  console.log('=================================');
-  console.log(`User: ${prResult.userId}`);
-  console.log(message);
-  console.log('=================================\n');
+  logger.info('New personal record notification', {
+    userId: prResult.userId,
+    workoutId: prResult.workoutId,
+    records: prResult.personalRecords.map(pr => ({
+      exercise: pr.exerciseName,
+      newBest: pr.newBest,
+      previousBest: pr.previousBest,
+      improvement: pr.improvement
+    }))
+  });
   
   // Mock notification log
   await db.collection('notifications').add({
