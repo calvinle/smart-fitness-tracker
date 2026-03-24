@@ -67,7 +67,7 @@ func main() {
 	} else {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339})
 	}
-	
+
 	// Set global log level
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if os.Getenv("LOG_LEVEL") == "debug" {
@@ -75,7 +75,7 @@ func main() {
 	}
 
 	router := mux.NewRouter()
-	
+
 	// Add request logging middleware
 	router.Use(loggingMiddleware)
 
@@ -109,7 +109,7 @@ func main() {
 		Str("port", port).
 		Str("service", "api-gateway").
 		Msg("API Gateway starting")
-		
+
 	if workflowMock {
 		log.Warn().Msg("Running in MOCK MODE (no GCP required)")
 		log.Info().
@@ -125,7 +125,7 @@ func main() {
 			Str("workflow", workflowID).
 			Msg("GCP configuration")
 	}
-	
+
 	log.Fatal().Err(http.ListenAndServe(":"+port, handler)).Msg("Server stopped")
 }
 
@@ -133,14 +133,14 @@ func main() {
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// Create a response writer wrapper to capture status code
 		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-		
+
 		next.ServeHTTP(wrapped, r)
-		
+
 		duration := time.Since(start)
-		
+
 		log.Info().
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
@@ -381,7 +381,7 @@ func getUserPersonalRecords(ctx context.Context, userID string) ([]map[string]in
 	defer client.Close()
 
 	// Query personal records for this user
-	iter := client.Collection("personal-records").
+	iter := client.Collection("personalrecords").
 		Where("userId", "==", userID).
 		OrderBy("date", firestore.Desc).
 		Limit(100).
@@ -501,7 +501,7 @@ func getWorkflowStatus(ctx context.Context, executionName string) (map[string]in
 // simulateWorkflow simulates the workflow by calling services directly (for local testing)
 func simulateWorkflow(ctx context.Context, workout WorkoutRequest) (string, error) {
 	executionID := fmt.Sprintf("mock-execution-%d", time.Now().Unix())
-	log.Printf("Simulating workflow with ID: %s", executionID)
+	log.Info().Str("executionId", executionID).Msg("Simulating workflow")
 
 	// Step 1: Validate
 	validatedData, err := callValidator(workout)
@@ -524,7 +524,7 @@ func simulateWorkflow(ctx context.Context, workout WorkoutRequest) (string, erro
 	}
 	log.Info().Msg("✓ Persistence completed")
 
-	log.Printf("Mock workflow %s completed successfully", executionID)
+	log.Info().Str("executionId", executionID).Msg("Mock workflow completed successfully")
 	return executionID, nil
 }
 
