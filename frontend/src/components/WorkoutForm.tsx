@@ -4,10 +4,10 @@ import WorkoutStatus from './WorkoutStatus';
 import './WorkoutForm.css';
 
 interface Props {
-  onSubmitted: (executionId: string) => void;
+  onSubmitted?: (executionId: string) => void;
 }
 
-export default function WorkoutForm({ onSubmitted }: Props) {
+export default function WorkoutForm({ onSubmitted }: Props = {}) {
   const [userId, setUserId] = useState('demo-user-123');
   const [bodyweight, setBodyweight] = useState(80);
   const [exercises, setExercises] = useState<Exercise[]>([
@@ -56,7 +56,7 @@ export default function WorkoutForm({ onSubmitted }: Props) {
       if (response.success && response.data?.executionId) {
         setSuccess('Workout submitted successfully! Processing...');
         setExecutionId(response.data.executionId);
-        onSubmitted(response.data.executionId);
+        onSubmitted?.(response.data.executionId);
       } else {
         setError(response.error || 'Failed to submit workout');
       }
