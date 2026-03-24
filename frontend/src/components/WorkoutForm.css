@@ -153,6 +153,12 @@
   margin-top: 1rem;
 }
 
+.status-section {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e0e0e0;
+}
+
 @media (max-width: 768px) {
   .exercise-fields {
     grid-template-columns: 1fr;

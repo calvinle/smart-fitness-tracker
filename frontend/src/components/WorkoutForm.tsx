@@ -1,5 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { submitWorkout, Exercise, WorkoutSubmission } from '../api/workout';
+import WorkoutStatus from './WorkoutStatus';
 import './WorkoutForm.css';
 
 interface Props {
@@ -16,6 +17,7 @@ export default function WorkoutForm({ onSubmitted }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [executionId, setExecutionId] = useState<string>('');
 
   const addExercise = () => {
     setExercises([
@@ -53,6 +55,7 @@ export default function WorkoutForm({ onSubmitted }: Props) {
 
       if (response.success && response.data?.executionId) {
         setSuccess('Workout submitted successfully! Processing...');
+        setExecutionId(response.data.executionId);
         onSubmitted(response.data.executionId);
       } else {
         setError(response.error || 'Failed to submit workout');
@@ -204,6 +207,13 @@ export default function WorkoutForm({ onSubmitted }: Props) {
           {loading ? 'Submitting...' : 'Save Workout'}
         </button>
       </form>
+
+      {/* Display workout status and PR notifications below the form */}
+      {executionId && (
+        <div className="status-section">
+          <WorkoutStatus executionId={executionId} />
+        </div>
+      )}
     </div>
   );
 }
