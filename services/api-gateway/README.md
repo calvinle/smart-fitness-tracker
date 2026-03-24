@@ -187,3 +187,6 @@ Ideal for GCP Free Tier with:
 - 2M requests/month free
 - 360K GB-seconds/month free
 - Always-free Cloud Run allowance
+
+## TODO
+- Authentication upon real-world usage
