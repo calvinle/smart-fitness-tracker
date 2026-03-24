@@ -1,16 +1,32 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { saveWorkout, getUserWorkouts, getWorkout, getPersonalRecords } from './firestore';
 import { publishWorkoutProcessed } from './pubsub';
 
 const app = express();
 const PORT = process.env.PORT || 8082;
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : [];
+
 // Middleware
 app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(cors({
+  origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+  methods: ['GET', 'POST'],
+}));
+app.use(express.json({ limit: '100kb' }));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -24,7 +40,7 @@ app.get('/health', (req: Request, res: Response) => {
  * Request body: { validatedData, calculatedScores }
  * Response: { success: true, workoutId: string, workout: WorkoutDocument }
  */
-app.post('/persist', async (req: Request, res: Response) => {
+app.post('/persist', limiter, async (req: Request, res: Response) => {
   try {
     console.log('Received persistence request');
     
@@ -54,7 +70,7 @@ app.post('/persist', async (req: Request, res: Response) => {
     console.error('Persistence error:', error);
     res.status(500).json({
       error: 'Failed to persist workout',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'An internal error occurred',
     });
   }
 });
@@ -63,10 +79,13 @@ app.post('/persist', async (req: Request, res: Response) => {
  * GET /workouts/:userId
  * Get user's workout history
  */
-app.get('/workouts/:userId', async (req: Request, res: Response) => {
+app.get('/workouts/:userId', limiter, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const limit = parseInt(req.query.limit as string) || 50;
+    const requestedLimit = parseInt(req.query.limit as string, 10);
+    const limit = Number.isInteger(requestedLimit) && requestedLimit > 0
+      ? Math.min(requestedLimit, 200)
+      : 50;
     
     const workouts = await getUserWorkouts(userId, limit);
     
@@ -79,7 +98,7 @@ app.get('/workouts/:userId', async (req: Request, res: Response) => {
     console.error('Error fetching workouts:', error);
     res.status(500).json({
       error: 'Failed to fetch workouts',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'An internal error occurred',
     });
   }
 });
@@ -88,7 +107,7 @@ app.get('/workouts/:userId', async (req: Request, res: Response) => {
  * GET /workout/:workoutId
  * Get specific workout
  */
-app.get('/workout/:workoutId', async (req: Request, res: Response) => {
+app.get('/workout/:workoutId', limiter, async (req: Request, res: Response) => {
   try {
     const { workoutId } = req.params;
     
@@ -103,7 +122,7 @@ app.get('/workout/:workoutId', async (req: Request, res: Response) => {
     console.error('Error fetching workout:', error);
     res.status(500).json({
       error: 'Failed to fetch workout',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'An internal error occurred',
     });
   }
 });
@@ -112,7 +131,7 @@ app.get('/workout/:workoutId', async (req: Request, res: Response) => {
  * GET /records/:userId
  * Get user's personal records
  */
-app.get('/records/:userId', async (req: Request, res: Response) => {
+app.get('/records/:userId', limiter, async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     
@@ -126,7 +145,7 @@ app.get('/records/:userId', async (req: Request, res: Response) => {
     console.error('Error fetching personal records:', error);
     res.status(500).json({
       error: 'Failed to fetch personal records',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'An internal error occurred',
     });
   }
 });

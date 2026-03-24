@@ -1,15 +1,31 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { validateWorkout } from './validation';
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : [];
+
 // Middleware
 app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(cors({
+  origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+  methods: ['GET', 'POST'],
+}));
+app.use(express.json({ limit: '100kb' }));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -23,7 +39,7 @@ app.get('/health', (req: Request, res: Response) => {
  * Request body: Workout object
  * Response: { valid: boolean, errors?: string[], data?: Workout }
  */
-app.post('/validate', (req: Request, res: Response) => {
+app.post('/validate', limiter, (req: Request, res: Response) => {
   console.log('Received validation request:', JSON.stringify(req.body, null, 2));
   
   const result = validateWorkout(req.body);

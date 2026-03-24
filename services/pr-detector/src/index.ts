@@ -1,16 +1,32 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { PubSub, Message } from '@google-cloud/pubsub';
 import { detectPersonalRecords, sendPRNotification } from './detector';
 
 const app = express();
 const PORT = process.env.PORT || 8083;
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : [];
+
 // Middleware
 app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(cors({
+  origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+  methods: ['GET', 'POST'],
+}));
+app.use(express.json({ limit: '100kb' }));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
@@ -21,7 +37,7 @@ app.get('/health', (req: Request, res: Response) => {
  * POST /detect
  * Manual PR detection endpoint (for testing)
  */
-app.post('/detect', async (req: Request, res: Response) => {
+app.post('/detect', limiter, async (req: Request, res: Response) => {
   try {
     const { workoutId, userId } = req.body;
     
@@ -43,7 +59,7 @@ app.post('/detect', async (req: Request, res: Response) => {
     console.error('PR detection error:', error);
     res.status(500).json({
       error: 'PR detection failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: process.env.NODE_ENV === 'development' && error instanceof Error ? error.message : 'An internal error occurred',
     });
   }
 });
@@ -53,7 +69,7 @@ app.post('/detect', async (req: Request, res: Response) => {
  * Pub/Sub push endpoint
  * Receives WORKOUT_PROCESSED events
  */
-app.post('/pubsub', async (req: Request, res: Response) => {
+app.post('/pubsub', limiter, async (req: Request, res: Response) => {
   try {
     console.log('Received Pub/Sub message');
     
