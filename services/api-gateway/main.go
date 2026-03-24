@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
-	"cloud.google.com/go/workflows/executions/apiv1"
+	executions "cloud.google.com/go/workflows/executions/apiv1"
 	"cloud.google.com/go/workflows/executions/apiv1/executionspb"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -71,6 +71,9 @@ func main() {
 
 	// Get PR notifications for a workout
 	router.HandleFunc("/api/workout/{workoutId}/notifications", getWorkoutNotificationsHandler).Methods("GET")
+
+	// Get personal records for a user
+	router.HandleFunc("/api/users/{userId}/personal-records", getUserPersonalRecordsHandler).Methods("GET")
 
 	// CORS configuration
 	c := cors.New(cors.Options{
@@ -221,6 +224,31 @@ func getWorkoutNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// getUserPersonalRecordsHandler fetches all personal records for a specific user
+func getUserPersonalRecordsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["userId"]
+
+	log.Printf("Fetching personal records for user: %s", userID)
+
+	// Get personal records from Firestore
+	records, err := getUserPersonalRecords(r.Context(), userID)
+	if err != nil {
+		log.Printf("Error getting personal records: %v", err)
+		respondJSON(w, http.StatusInternalServerError, APIResponse{
+			Success: false,
+			Error:   "Failed to get personal records",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data:    records,
+	})
+}
+
 // getWorkoutNotifications fetches PR notifications from Firestore for a specific workout
 func getWorkoutNotifications(ctx context.Context, workoutID string) ([]map[string]interface{}, error) {
 	if workflowMock {
@@ -257,6 +285,61 @@ func getWorkoutNotifications(ctx context.Context, workoutID string) ([]map[strin
 	}
 
 	return notifications, nil
+}
+
+// getUserPersonalRecords fetches all personal records from Firestore for a specific user
+func getUserPersonalRecords(ctx context.Context, userID string) ([]map[string]interface{}, error) {
+	if workflowMock {
+		// Return mock data in mock mode
+		return []map[string]interface{}{
+			{
+				"id":        "mock-pr-1",
+				"workoutId": "mock-workout-1",
+				"userId":    userID,
+				"date":      "2026-03-20T10:00:00Z",
+				"records": []map[string]interface{}{
+					{
+						"exerciseName":          "Squat",
+						"previousBest":          100.0,
+						"newBest":               110.0,
+						"improvement":           10.0,
+						"improvementPercentage": 10.0,
+						"isPR":                  true,
+					},
+				},
+			},
+		}, nil
+	}
+
+	client, err := firestore.NewClientWithDatabase(ctx, projectID, "workouts")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Firestore client: %w", err)
+	}
+	defer client.Close()
+
+	// Query personal records for this user
+	iter := client.Collection("personal-records").
+		Where("userId", "==", userID).
+		OrderBy("date", firestore.Desc).
+		Limit(100).
+		Documents(ctx)
+
+	var records []map[string]interface{}
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to iterate personal records: %w", err)
+		}
+
+		data := doc.Data()
+		data["id"] = doc.Ref.ID
+		records = append(records, data)
+	}
+
+	return records, nil
 }
 
 // triggerWorkflow triggers the GCP Workflow for workout processing

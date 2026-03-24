@@ -1,0 +1,239 @@
+.record-lookup-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.record-lookup-container h2 {
+  color: #61dafb;
+  margin-bottom: 8px;
+  font-size: 2rem;
+}
+
+.subtitle {
+  color: #888;
+  margin-bottom: 30px;
+  font-size: 1rem;
+}
+
+.lookup-form {
+  background: #1e1e1e;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  margin-bottom: 30px;
+}
+
+.lookup-form .form-group {
+  margin-bottom: 20px;
+}
+
+.lookup-form label {
+  display: block;
+  margin-bottom: 8px;
+  color: #61dafb;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.lookup-form input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #2d2d2d;
+  color: white;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+  box-sizing: border-box;
+}
+
+.lookup-form input:focus {
+  outline: none;
+  border-color: #61dafb;
+}
+
+.lookup-form button {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.3s;
+}
+
+.lookup-form button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.lookup-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background: #ff4444;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+}
+
+.no-records {
+  background: #2d2d2d;
+  padding: 30px;
+  border-radius: 8px;
+  text-align: center;
+  color: #888;
+}
+
+.no-records strong {
+  color: #61dafb;
+}
+
+.no-records .hint {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: #999;
+}
+
+.records-list {
+  margin-top: 30px;
+}
+
+.records-list h3 {
+  color: #61dafb;
+  margin-bottom: 10px;
+  font-size: 1.5rem;
+}
+
+.record-count {
+  color: #888;
+  margin-bottom: 25px;
+  font-size: 0.95rem;
+}
+
+.record-entry {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-left: 4px solid #61dafb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #333;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.entry-header .date {
+  color: white;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.entry-header .workout-id {
+  color: #888;
+  font-size: 0.85rem;
+  font-family: monospace;
+}
+
+.records {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.record-item {
+  background: #2d2d2d;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #3a3a3a;
+  transition: border-color 0.3s;
+}
+
+.record-item:hover {
+  border-color: #61dafb;
+}
+
+.record-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.exercise-name {
+  color: white;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.new-best {
+  color: #61dafb;
+  font-weight: 700;
+  font-size: 1.3rem;
+}
+
+.record-improvement {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #3a3a3a;
+}
+
+.record-improvement .previous {
+  color: #999;
+}
+
+.record-improvement .improvement {
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.record-improvement.first-record {
+  border-top: none;
+  padding-top: 0;
+  color: #ffa726;
+  font-weight: 500;
+  justify-content: flex-start;
+}
+
+@media (max-width: 600px) {
+  .record-lookup-container {
+    padding: 15px;
+  }
+
+  .entry-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .record-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+
+  .record-improvement {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+}

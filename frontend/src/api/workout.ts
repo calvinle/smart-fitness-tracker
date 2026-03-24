@@ -45,8 +45,10 @@ export interface PersonalRecord {
   exerciseName: string;
   previousBest: number | null;
   newBest: number;
-  improvement?: number;
-  date: string;
+  improvement?: number | null;
+  improvementPercentage?: number | null;
+  isPR?: boolean;
+  date?: string;
 }
 
 export interface Notification {
@@ -92,6 +94,22 @@ export const healthCheck = async (): Promise<boolean> => {
 export const getWorkoutNotifications = async (workoutId: string): Promise<Notification[]> => {
   const response = await api.get<{ success: boolean; data: Notification[] }>(
     `/api/workout/${workoutId}/notifications`
+  );
+  return response.data.data || [];
+};
+
+export interface PersonalRecordEntry {
+  id: string;
+  workoutId: string;
+  userId: string;
+  date: string;
+  records: PersonalRecord[];
+  createdAt: string;
+}
+
+export const getUserPersonalRecords = async (userId: string): Promise<PersonalRecordEntry[]> => {
+  const response = await api.get<{ success: boolean; data: PersonalRecordEntry[] }>(
+    `/api/users/${userId}/personal-records`
   );
   return response.data.data || [];
 };
