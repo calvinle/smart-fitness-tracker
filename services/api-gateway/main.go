@@ -409,7 +409,7 @@ func getUserPersonalRecords(ctx context.Context, userID string) ([]map[string]in
 func triggerWorkflow(ctx context.Context, workout WorkoutRequest) (string, error) {
 	// Mock mode: simulate workflow by calling services directly
 	if workflowMock {
-		log.Println("Running in MOCK mode - simulating workflow")
+		log.Info().Msg("Running in MOCK mode - simulating workflow")
 		return simulateWorkflow(ctx, workout)
 	}
 
@@ -508,21 +508,21 @@ func simulateWorkflow(ctx context.Context, workout WorkoutRequest) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("validation failed: %w", err)
 	}
-	log.Println("✓ Validation passed")
+	log.Info().Msg("✓ Validation passed")
 
 	// Step 2: Calculate
 	calculatedData, err := callCalculator(validatedData)
 	if err != nil {
 		return "", fmt.Errorf("calculation failed: %w", err)
 	}
-	log.Println("✓ Calculation completed")
+	log.Info().Msg("✓ Calculation completed")
 
 	// Step 3: Persist
 	err = callPersistence(validatedData, calculatedData)
 	if err != nil {
 		return "", fmt.Errorf("persistence failed: %w", err)
 	}
-	log.Println("✓ Persistence completed")
+	log.Info().Msg("✓ Persistence completed")
 
 	log.Printf("Mock workflow %s completed successfully", executionID)
 	return executionID, nil

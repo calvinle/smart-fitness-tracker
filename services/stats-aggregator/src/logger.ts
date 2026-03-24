@@ -1,7 +1,7 @@
 import { Logger, ILogObj } from "tslog";
 
 // Determine if we're in production (GCP Cloud Run)
-const isProduction = process.env.NODE_ENV === 'production' || process.env.K_SERVICE;
+const isProduction = process.env.NODE_ENV === 'production' || !!process.env.K_SERVICE;
 
 // Create logger instance optimized for GCP Cloud Logging
 const logger: Logger<ILogObj> = new Logger({
