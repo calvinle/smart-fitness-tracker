@@ -88,3 +88,10 @@ export const healthCheck = async (): Promise<boolean> => {
     return false;
   }
 };
+
+export const getWorkoutNotifications = async (workoutId: string): Promise<Notification[]> => {
+  const response = await api.get<{ success: boolean; data: Notification[] }>(
+    `/api/workout/${workoutId}/notifications`
+  );
+  return response.data.data || [];
+};

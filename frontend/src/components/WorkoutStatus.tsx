@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getWorkoutStatus, WorkoutStatus as Status } from '../api/workout';
+import { getWorkoutStatus, getWorkoutNotifications, WorkoutStatus as Status } from '../api/workout';
 import './WorkoutStatus.css';
 
 interface Props {
@@ -46,41 +46,53 @@ export default function WorkoutStatus({ executionId }: Props) {
   }, [executionId]);
 
   const checkForPersonalRecords = async (workoutStatus: Status) => {
-    if (!workoutStatus.result?.workoutId) return;
+    const workoutId = workoutStatus.result?.workoutId;
+    if (!workoutId) {
+      console.log('No workoutId found in result');
+      return;
+    }
     
     setCheckingPRs(true);
     try {
-      // Extract workout data to check for PRs
-      const workoutId = workoutStatus.result.workoutId;
-      const userId = workoutStatus.result.validation?.userId || 
-                     workoutStatus.result.validatedData?.userId;
+      // Fetch PR notifications from the server
+      const notifications = await getWorkoutNotifications(workoutId);
       
-      if (!userId) {
-        console.log('No userId found in workout result');
+      if (notifications.length === 0) {
+        console.log('No PR notifications found for workout:', workoutId);
         setCheckingPRs(false);
         return;
       }
 
-      // Check if any exercises have new estimated 1RMs that are PRs
-      const estimatedOneRepMax = workoutStatus.result.calculation?.estimatedOneRepMax || {};
-      const exercises = workoutStatus.result.calculation?.exercises || 
-                       workoutStatus.result.validatedData?.exercises || [];
-      
+      // Parse notifications to extract personal records
       const detectedPRs: PersonalRecord[] = [];
       
-      // Simple PR detection based on the workout data
-      // Note: Real PR detection happens server-side via PR-Detector service
-      for (const [exerciseName, oneRepMax] of Object.entries(estimatedOneRepMax)) {
-        if (typeof oneRepMax === 'number' && oneRepMax > 0) {
-          // In a real implementation, we'd fetch from Firestore notifications
-          // For now, show PRs based on the calculation data
-          const exercise = exercises.find((ex: any) => ex.name === exerciseName);
-          if (exercise) {
-            detectedPRs.push({
-              exerciseName,
-              newBest: oneRepMax as number,
-              previousBest: null, // Would come from Firestore in real implementation
-            });
+      for (const notification of notifications) {
+        if (notification.type === 'PERSONAL_RECORD') {
+          // Parse the message to extract PR data (e.g., "New Squat PR: 185kg (5kg better, +2.8%) 💪")
+          // Or if we have structured data in the notification
+          const message = notification.message;
+          const lines = message.split('\n');
+          
+          for (const line of lines) {
+            // Match pattern: "New <Exercise> PR: <newBest>kg (<improvement>kg better, +<percentage>%)"
+            // or "New <Exercise> record: <newBest>kg!"
+            const prMatch = line.match(/New ([^:]+) (?:PR|record): ([\d.]+)kg/i);
+            if (prMatch) {
+              const exerciseName = prMatch[1].trim();
+              const newBest = parseFloat(prMatch[2]);
+              
+              // Extract previous best and improvement if present
+              const improvementMatch = line.match(/\(([\d.]+)kg better/);
+              const previousBest = improvementMatch ? newBest - parseFloat(improvementMatch[1]) : null;
+              const improvement = improvementMatch ? parseFloat(improvementMatch[1]) : undefined;
+              
+              detectedPRs.push({
+                exerciseName,
+                newBest,
+                previousBest,
+                improvement,
+              });
+            }
           }
         }
       }
@@ -88,8 +100,10 @@ export default function WorkoutStatus({ executionId }: Props) {
       if (detectedPRs.length > 0) {
         setPersonalRecords(detectedPRs);
       }
-    } catch (err) {
-      console.error('Error checking for PRs:', err);
+    } catch (err: any) {
+      // Gracefully handle errors (e.g., index still building)
+      console.log('PR notifications not available yet:', err.message || err);
+      // Don't show error to user - PRs might not be detected yet or index is building
     } finally {
       setCheckingPRs(false);
     }

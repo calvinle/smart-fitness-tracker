@@ -11,10 +11,12 @@ import (
 	"os"
 	"time"
 
+	"cloud.google.com/go/firestore"
 	"cloud.google.com/go/workflows/executions/apiv1"
 	"cloud.google.com/go/workflows/executions/apiv1/executionspb"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
+	"google.golang.org/api/iterator"
 )
 
 var (
@@ -66,6 +68,9 @@ func main() {
 
 	// Get workout status (using path to allow slashes in execution ID)
 	router.HandleFunc("/api/workout/{executionId:.*}/status", workoutStatusHandler).Methods("GET")
+
+	// Get PR notifications for a workout
+	router.HandleFunc("/api/workout/{workoutId}/notifications", getWorkoutNotificationsHandler).Methods("GET")
 
 	// CORS configuration
 	c := cors.New(cors.Options{
@@ -190,6 +195,68 @@ func workoutStatusHandler(w http.ResponseWriter, r *http.Request) {
 		Success: true,
 		Data:    status,
 	})
+}
+
+func getWorkoutNotificationsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	workoutID := vars["workoutId"]
+
+	log.Printf("Fetching PR notifications for workout: %s", workoutID)
+
+	// Get PR notifications from Firestore
+	notifications, err := getWorkoutNotifications(r.Context(), workoutID)
+	if err != nil {
+		log.Printf("Error getting notifications: %v", err)
+		respondJSON(w, http.StatusInternalServerError, APIResponse{
+			Success: false,
+			Error:   "Failed to get notifications",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data:    notifications,
+	})
+}
+
+// getWorkoutNotifications fetches PR notifications from Firestore for a specific workout
+func getWorkoutNotifications(ctx context.Context, workoutID string) ([]map[string]interface{}, error) {
+	if workflowMock {
+		// Return empty array in mock mode
+		return []map[string]interface{}{}, nil
+	}
+
+	client, err := firestore.NewClientWithDatabase(ctx, projectID, "workouts")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Firestore client: %w", err)
+	}
+	defer client.Close()
+
+	// Query notifications for this workout
+	iter := client.Collection("notifications").
+		Where("workoutId", "==", workoutID).
+		Where("type", "==", "PERSONAL_RECORD").
+		OrderBy("createdAt", firestore.Desc).
+		Documents(ctx)
+
+	var notifications []map[string]interface{}
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to iterate notifications: %w", err)
+		}
+
+		data := doc.Data()
+		data["id"] = doc.Ref.ID
+		notifications = append(notifications, data)
+	}
+
+	return notifications, nil
 }
 
 // triggerWorkflow triggers the GCP Workflow for workout processing
