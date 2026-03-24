@@ -118,6 +118,47 @@ docker run -p 8080:8080 \
 
 ## Cloud Run Deployment
 
+**Important**: Before deploying, ensure Firestore indexes are created.
+
+**Option 1 - Using Firebase CLI (Recommended):**
+```bash
+# From the project root directory
+firebase deploy --only firestore:indexes --project YOUR_PROJECT_ID
+```
+
+**Option 2 - Using gcloud (create each index individually):**
+```bash
+# Create index for personal-records collection
+gcloud firestore indexes composite create \
+  --collection-group=personal-records \
+  --database=workouts \
+  --query-scope=COLLECTION \
+  --field-config field-path=userId,order=ascending \
+  --field-config field-path=date,order=descending \
+  --project=YOUR_PROJECT_ID
+
+# Create index for workouts collection  
+gcloud firestore indexes composite create \
+  --collection-group=workouts \
+  --database=workouts \
+  --query-scope=COLLECTION \
+  --field-config field-path=userId,order=ascending \
+  --field-config field-path=date,order=descending \
+  --project=YOUR_PROJECT_ID
+
+# Create index for notifications collection
+gcloud firestore indexes composite create \
+  --collection-group=notifications \
+  --database=workouts \
+  --query-scope=COLLECTION \
+  --field-config field-path=workoutId,order=ascending \
+  --field-config field-path=type,order=ascending \
+  --field-config field-path=createdAt,order=descending \
+  --project=YOUR_PROJECT_ID
+```
+
+Then deploy the API Gateway:
+
 ```bash
 gcloud run deploy api-gateway \
   --source . \
