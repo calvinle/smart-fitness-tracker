@@ -95,7 +95,7 @@ export async function detectPersonalRecords(
   
   // Log PRs to Firestore for tracking
   if (hasPersonalRecords) {
-    await db.collection('personal-records').add({
+    await db.collection('personalrecords').add({
       workoutId,
       userId,
       date: newWorkout.date,

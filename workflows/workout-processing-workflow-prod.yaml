@@ -1,4 +1,7 @@
-main:
+# Workout Processing Workflow - PRODUCTION
+# This workflow has hardcoded service URLs for production deployment
+# Generated automatically by deploy.sh script
+# Phase A: Orchestrated Logic (Validator → Calculator → Persistence)
   params: [workout]
   steps:
     - validate:

@@ -94,6 +94,9 @@ func main() {
 	// Get personal records for a user
 	router.HandleFunc("/api/users/{userId}/personal-records", getUserPersonalRecordsHandler).Methods("GET")
 
+	// Get user stats
+	router.HandleFunc("/api/users/{userId}/stats", getUserStatsHandler).Methods("GET")
+
 	// CORS configuration
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"}, // In production, restrict to your frontend domain
@@ -312,6 +315,40 @@ func getUserPersonalRecordsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// getUserStatsHandler fetches user statistics from Firestore
+func getUserStatsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userID := vars["userId"]
+
+	log.Debug().Str("userId", userID).Msg("Fetching user stats")
+
+	// Get user stats from Firestore
+	stats, err := getUserStats(r.Context(), userID)
+	if err != nil {
+		log.Error().Err(err).Str("userId", userID).Msg("Error getting user stats")
+		respondJSON(w, http.StatusInternalServerError, APIResponse{
+			Success: false,
+			Error:   "Failed to get user stats",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	if stats == nil {
+		respondJSON(w, http.StatusNotFound, APIResponse{
+			Success: false,
+			Error:   "User stats not found",
+			Message: "No statistics available for this user",
+		})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data:    stats,
+	})
+}
+
 // getWorkoutNotifications fetches PR notifications from Firestore for a specific workout
 func getWorkoutNotifications(ctx context.Context, workoutID string) ([]map[string]interface{}, error) {
 	if workflowMock {
@@ -403,6 +440,86 @@ func getUserPersonalRecords(ctx context.Context, userID string) ([]map[string]in
 	}
 
 	return records, nil
+}
+
+// getUserStats fetches user statistics from Firestore
+func getUserStats(ctx context.Context, userID string) (map[string]interface{}, error) {
+	if workflowMock {
+		// Return mock data in mock mode
+		return map[string]interface{}{
+			"userId":            userID,
+			"totalWorkouts":     15,
+			"totalVolume":       25000,
+			"totalLifted":       5000,
+			"averageDotsScore":  285.5,
+			"bestDotsScore":     310.2,
+			"bestDotsScoreDate": "2026-03-20T10:00:00Z",
+			"recentWorkouts":    5,
+			"consistency":       2.5,
+			"liftRecords": map[string]interface{}{
+				"squat": map[string]interface{}{
+					"mostRecent": map[string]interface{}{
+						"weight":    140.0,
+						"reps":      5,
+						"date":      "2026-03-22T10:00:00Z",
+						"workoutId": "mock-workout-recent",
+					},
+					"best": map[string]interface{}{
+						"weight":    150.0,
+						"reps":      3,
+						"date":      "2026-03-20T10:00:00Z",
+						"workoutId": "mock-workout-best",
+					},
+				},
+				"bench": map[string]interface{}{
+					"mostRecent": map[string]interface{}{
+						"weight":    100.0,
+						"reps":      5,
+						"date":      "2026-03-22T10:00:00Z",
+						"workoutId": "mock-workout-recent",
+					},
+					"best": map[string]interface{}{
+						"weight":    105.0,
+						"reps":      3,
+						"date":      "2026-03-21T10:00:00Z",
+						"workoutId": "mock-workout-best-bench",
+					},
+				},
+				"deadlift": map[string]interface{}{
+					"mostRecent": map[string]interface{}{
+						"weight":    180.0,
+						"reps":      5,
+						"date":      "2026-03-22T10:00:00Z",
+						"workoutId": "mock-workout-recent",
+					},
+					"best": map[string]interface{}{
+						"weight":    190.0,
+						"reps":      2,
+						"date":      "2026-03-20T10:00:00Z",
+						"workoutId": "mock-workout-best-dl",
+					},
+				},
+			},
+		}, nil
+	}
+
+	client, err := firestore.NewClientWithDatabase(ctx, projectID, "workouts")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Firestore client: %w", err)
+	}
+	defer client.Close()
+
+	// Get user stats document
+	doc, err := client.Collection("user-stats").Doc(userID).Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user stats: %w", err)
+	}
+
+	if !doc.Exists() {
+		return nil, nil
+	}
+
+	return doc.Data(), nil
 }
 
 // triggerWorkflow triggers the GCP Workflow for workout processing

@@ -1,5 +1,6 @@
-# Workout Processing Workflow
-# This workflow orchestrates the sequential processing of workout submissions
+# Workout Processing Workflow - DEVELOPMENT/LOCAL
+# This workflow uses environment variable placeholders for service URLs
+# Used during local development and initial deployment setup
 # Phase A: Orchestrated Logic (Validator → Calculator → Persistence)
 
 main:

@@ -194,14 +194,14 @@ if [ -z "$SERVICE_ACCOUNT" ]; then
 fi
 
 echo -e "${YELLOW}Creating PR-Detector subscription...${NC}"
-gcloud pubsub subscriptions create pr-detector-sub \
+gcloud pubsub subscriptions create pr-detector-subscription \
     --topic=workout-processed \
     --push-endpoint="$PR_DETECTOR_URL/pubsub" \
     --push-auth-service-account="$SERVICE_ACCOUNT" \
     --project="$GCP_PROJECT_ID" || echo "Subscription already exists"
 
 echo -e "${YELLOW}Creating Stats-Aggregator subscription...${NC}"
-gcloud pubsub subscriptions create stats-aggregator-sub \
+gcloud pubsub subscriptions create stats-aggregator-subscription \
     --topic=workout-processed \
     --push-endpoint="$STATS_AGGREGATOR_URL/pubsub" \
     --push-auth-service-account="$SERVICE_ACCOUNT" \

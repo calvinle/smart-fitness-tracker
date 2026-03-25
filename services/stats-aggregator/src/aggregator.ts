@@ -6,6 +6,13 @@ const db = new Firestore({
   databaseId: 'workouts',
 });
 
+export interface LiftRecord {
+  weight: number;
+  reps: number;
+  date: string;
+  workoutId: string;
+}
+
 export interface UserStats {
   userId: string;
   totalWorkouts: number;
@@ -13,10 +20,25 @@ export interface UserStats {
   totalLifted: number;
   averageDotsScore: number;
   bestDotsScore: number;
+  bestDotsScoreDate?: string;
   volumeByCategory: { [category: string]: number };
   exerciseFrequency: { [exerciseName: string]: number };
   recentWorkouts: number; // Last 30 days
   consistency: number; // Workouts per week average
+  liftRecords: {
+    squat?: {
+      mostRecent?: LiftRecord;
+      best?: LiftRecord;
+    };
+    bench?: {
+      mostRecent?: LiftRecord;
+      best?: LiftRecord;
+    };
+    deadlift?: {
+      mostRecent?: LiftRecord;
+      best?: LiftRecord;
+    };
+  };
   lastUpdated: Timestamp;
 }
 
@@ -44,8 +66,20 @@ export async function aggregateUserStats(userId: string): Promise<UserStats> {
   let totalLifted = 0;
   let totalDotsScore = 0;
   let bestDotsScore = 0;
+  let bestDotsScoreDate: string | undefined = undefined;
   const volumeByCategory: { [category: string]: number } = {};
   const exerciseFrequency: { [exerciseName: string]: number } = {};
+  
+  // Initialize lift records tracking
+  const liftRecords: {
+    squat?: { mostRecent?: LiftRecord; best?: LiftRecord };
+    bench?: { mostRecent?: LiftRecord; best?: LiftRecord };
+    deadlift?: { mostRecent?: LiftRecord; best?: LiftRecord };
+  } = {
+    squat: {},
+    bench: {},
+    deadlift: {},
+  };
   
   // Calculate date 30 days ago for recent workouts
   const thirtyDaysAgo = new Date();
@@ -58,6 +92,8 @@ export async function aggregateUserStats(userId: string): Promise<UserStats> {
   // Aggregate data
   workouts.docs.forEach((doc) => {
     const workout = doc.data();
+    const workoutId = doc.id;
+    const workoutDate = workout.date;
     
     // Update totals
     totalLifted += workout.totalLifted || 0;
@@ -65,6 +101,7 @@ export async function aggregateUserStats(userId: string): Promise<UserStats> {
     
     if (workout.dotsScore > bestDotsScore) {
       bestDotsScore = workout.dotsScore;
+      bestDotsScoreDate = workoutDate;
     }
     
     // Aggregate volume by category
@@ -75,21 +112,48 @@ export async function aggregateUserStats(userId: string): Promise<UserStats> {
       });
     }
     
-    // Count exercise frequency
+    // Count exercise frequency and track lift records
     workout.exercises?.forEach((exercise: any) => {
       const name = exercise.name;
+      const category = exercise.category?.toLowerCase();
       exerciseFrequency[name] = (exerciseFrequency[name] || 0) + 1;
+      
+      // Track per-lift records for main lifts
+      if (category === 'squat' || category === 'bench' || category === 'deadlift') {
+        const liftType = category as 'squat' | 'bench' | 'deadlift';
+        const weight = exercise.weight || 0;
+        const reps = exercise.reps || 0;
+        
+        if (weight > 0 && reps > 0) {
+          const record: LiftRecord = {
+            weight,
+            reps,
+            date: workoutDate,
+            workoutId,
+          };
+          
+          // Update most recent (first in desc order)
+          if (!liftRecords[liftType]?.mostRecent) {
+            liftRecords[liftType]!.mostRecent = record;
+          }
+          
+          // Update best (highest weight)
+          if (!liftRecords[liftType]?.best || weight > liftRecords[liftType]!.best!.weight) {
+            liftRecords[liftType]!.best = record;
+          }
+        }
+      }
     });
     
     // Check if recent workout
-    const workoutDate = new Date(workout.date);
-    if (workoutDate >= thirtyDaysAgo) {
+    const workoutDateObj = new Date(workoutDate);
+    if (workoutDateObj >= thirtyDaysAgo) {
       recentWorkouts++;
     }
     
     // Track earliest date
-    if (!earliestDate || workoutDate < earliestDate) {
-      earliestDate = workoutDate;
+    if (!earliestDate || workoutDateObj < earliestDate) {
+      earliestDate = workoutDateObj;
     }
   });
   
@@ -111,10 +175,12 @@ export async function aggregateUserStats(userId: string): Promise<UserStats> {
     totalLifted: Math.round(totalLifted),
     averageDotsScore: Math.round(averageDotsScore * 100) / 100,
     bestDotsScore: Math.round(bestDotsScore * 100) / 100,
+    bestDotsScoreDate,
     volumeByCategory,
     exerciseFrequency,
     recentWorkouts,
     consistency: Math.round(consistency * 100) / 100,
+    liftRecords,
     lastUpdated: Timestamp.now(),
   };
   

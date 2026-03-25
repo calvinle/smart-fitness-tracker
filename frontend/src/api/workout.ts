@@ -107,9 +107,59 @@ export interface PersonalRecordEntry {
   createdAt: string;
 }
 
+export interface LiftRecord {
+  weight: number;
+  reps: number;
+  date: string;
+  workoutId: string;
+}
+
+export interface UserStats {
+  userId: string;
+  totalWorkouts: number;
+  totalVolume: number;
+  totalLifted: number;
+  averageDotsScore: number;
+  bestDotsScore: number;
+  bestDotsScoreDate?: string;
+  volumeByCategory: { [category: string]: number };
+  exerciseFrequency: { [exerciseName: string]: number };
+  recentWorkouts: number;
+  consistency: number;
+  liftRecords: {
+    squat?: {
+      mostRecent?: LiftRecord;
+      best?: LiftRecord;
+    };
+    bench?: {
+      mostRecent?: LiftRecord;
+      best?: LiftRecord;
+    };
+    deadlift?: {
+      mostRecent?: LiftRecord;
+      best?: LiftRecord;
+    };
+  };
+  lastUpdated: any;
+}
+
 export const getUserPersonalRecords = async (userId: string): Promise<PersonalRecordEntry[]> => {
   const response = await api.get<{ success: boolean; data: PersonalRecordEntry[] }>(
     `/api/users/${userId}/personal-records`
   );
   return response.data.data || [];
+};
+
+export const getUserStats = async (userId: string): Promise<UserStats | null> => {
+  try {
+    const response = await api.get<{ success: boolean; data: UserStats }>(
+      `/api/users/${userId}/stats`
+    );
+    return response.data.data || null;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 };

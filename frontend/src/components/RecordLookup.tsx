@@ -1,10 +1,11 @@
 import { useState, FormEvent } from 'react';
-import { getUserPersonalRecords, PersonalRecordEntry } from '../api/workout';
+import { getUserPersonalRecords, PersonalRecordEntry, getUserStats, UserStats, LiftRecord } from '../api/workout';
 import './RecordLookup.css';
 
 export default function RecordLookup() {
   const [userId, setUserId] = useState('demo-user-123');
   const [records, setRecords] = useState<PersonalRecordEntry[]>([]);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
@@ -16,19 +17,49 @@ export default function RecordLookup() {
     setSearched(true);
 
     try {
-      const data = await getUserPersonalRecords(userId);
-      setRecords(data);
+      // Fetch both user stats and personal records
+      const [statsData, recordsData] = await Promise.all([
+        getUserStats(userId),
+        getUserPersonalRecords(userId)
+      ]);
+      setUserStats(statsData);
+      setRecords(recordsData);
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to fetch personal records');
+      setError(err.response?.data?.error || 'Failed to fetch user data');
     } finally {
       setLoading(false);
     }
   };
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const renderLiftRecord = (liftName: string, record?: LiftRecord, label?: string) => {
+    if (!record) return null;
+
+    return (
+      <div className="lift-record">
+        <div className="lift-header">
+          <span className="lift-label">{label || liftName}</span>
+        </div>
+        <div className="lift-details">
+          <span className="lift-weight">{record.weight} kg</span>
+          <span className="lift-reps">× {record.reps} reps</span>
+          <span className="lift-date">{formatDate(record.date)}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="record-lookup-container">
       <h2>📊 Record Lookup</h2>
-      <p className="subtitle">View all personal records for a user</p>
+      <p className="subtitle">View user statistics and lift records</p>
 
       <form onSubmit={handleSubmit} className="lookup-form">
         <div className="form-group">
@@ -53,10 +84,93 @@ export default function RecordLookup() {
         </div>
       )}
 
-      {searched && !loading && records.length === 0 && !error && (
+      {searched && !loading && !userStats && !error && (
         <div className="no-records">
-          <p>No personal records found for user: <strong>{userId}</strong></p>
-          <p className="hint">Try submitting a workout first to generate personal records!</p>
+          <p>No statistics found for user: <strong>{userId}</strong></p>
+          <p className="hint">Try submitting a workout first to generate statistics!</p>
+        </div>
+      )}
+
+      {userStats && (
+        <div className="user-stats-container">
+          <h3>Stats for {userId}</h3>
+          
+          {/* Best DOTS Score Section */}
+          <div className="stats-section">
+            <h4>🏆 Best Performance</h4>
+            <div className="dots-score-card">
+              <div className="score-main">
+                <span className="score-label">Best DOTS Score</span>
+                <span className="score-value">{userStats.bestDotsScore.toFixed(2)}</span>
+              </div>
+              {userStats.bestDotsScoreDate && (
+                <div className="score-date">
+                  Achieved on {formatDate(userStats.bestDotsScoreDate)}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Lift Records Section */}
+          <div className="stats-section">
+            <h4>💪 Lift Records</h4>
+            
+            {/* Squat */}
+            {(userStats.liftRecords.squat?.mostRecent || userStats.liftRecords.squat?.best) && (
+              <div className="lift-category">
+                <h5>Squat</h5>
+                <div className="lift-records-grid">
+                  {renderLiftRecord('Squat', userStats.liftRecords.squat?.mostRecent, 'Most Recent')}
+                  {renderLiftRecord('Squat', userStats.liftRecords.squat?.best, 'Personal Best')}
+                </div>
+              </div>
+            )}
+
+            {/* Bench */}
+            {(userStats.liftRecords.bench?.mostRecent || userStats.liftRecords.bench?.best) && (
+              <div className="lift-category">
+                <h5>Bench Press</h5>
+                <div className="lift-records-grid">
+                  {renderLiftRecord('Bench', userStats.liftRecords.bench?.mostRecent, 'Most Recent')}
+                  {renderLiftRecord('Bench', userStats.liftRecords.bench?.best, 'Personal Best')}
+                </div>
+              </div>
+            )}
+
+            {/* Deadlift */}
+            {(userStats.liftRecords.deadlift?.mostRecent || userStats.liftRecords.deadlift?.best) && (
+              <div className="lift-category">
+                <h5>Deadlift</h5>
+                <div className="lift-records-grid">
+                  {renderLiftRecord('Deadlift', userStats.liftRecords.deadlift?.mostRecent, 'Most Recent')}
+                  {renderLiftRecord('Deadlift', userStats.liftRecords.deadlift?.best, 'Personal Best')}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Summary Stats */}
+          <div className="stats-section">
+            <h4>📈 Summary</h4>
+            <div className="summary-grid">
+              <div className="summary-item">
+                <span className="summary-label">Total Workouts</span>
+                <span className="summary-value">{userStats.totalWorkouts}</span>
+              </div>
+              <div className="summary-item">
+                <span className="summary-label">Recent Workouts (30d)</span>
+                <span className="summary-value">{userStats.recentWorkouts}</span>
+              </div>
+              <div className="summary-item">
+                <span className="summary-label">Total Volume</span>
+                <span className="summary-value">{userStats.totalVolume.toLocaleString()} kg</span>
+              </div>
+              <div className="summary-item">
+                <span className="summary-label">Avg DOTS Score</span>
+                <span className="summary-value">{userStats.averageDotsScore.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
