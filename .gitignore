@@ -47,6 +47,10 @@ Thumbs.db
 *.out
 coverage/
 
+# Scripts
+*.sh
+scripts/
+
 # Firebase
 .firebase/
 firebase-debug.log
